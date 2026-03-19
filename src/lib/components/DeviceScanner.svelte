@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { device } from '$lib/stores/device';
   import DeviceCard from './DeviceCard.svelte';
 
   let scanError: string | null = null;
+  let scanTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Ensure scanning is false on mount
   onMount(() => {
     device.setScanning(false);
+  });
+
+  onDestroy(() => {
+    if (scanTimeout) {
+      clearTimeout(scanTimeout);
+      scanTimeout = null;
+    }
   });
 
   async function startScan() {
@@ -20,7 +28,7 @@
       await invoke('start_scan');
 
       // Auto-stop scan after 30 seconds
-      setTimeout(() => {
+      scanTimeout = setTimeout(() => {
         if ($device.isScanning) {
           stopScan();
         }
@@ -33,6 +41,10 @@
   }
 
   async function stopScan() {
+    if (scanTimeout) {
+      clearTimeout(scanTimeout);
+      scanTimeout = null;
+    }
     try {
       await invoke('stop_scan');
     } catch (error) {

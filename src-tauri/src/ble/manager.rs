@@ -1,4 +1,4 @@
-use crate::alert::notifier::check_alert;
+use crate::alert::notifier::{check_alert, reset_alert_cooldowns};
 use crate::ble::{DeviceInfo, ConnectionState, HEART_RATE_SERVICE_UUID, HEART_RATE_MEASUREMENT_UUID};
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
 use btleplug::platform::{Adapter, Manager, Peripheral};
@@ -76,7 +76,11 @@ impl BleManager {
             return Err("No Bluetooth adapter found. Please ensure your computer has Bluetooth enabled.".to_string());
         }
 
-        let adapter = adapters.into_iter().next().unwrap();
+        let adapter = adapters.into_iter().next()
+            .ok_or_else(|| {
+                log::error!("No Bluetooth adapter available");
+                "No Bluetooth adapter available. Please ensure your computer has Bluetooth enabled.".to_string()
+            })?;
         inner.adapter = Some(adapter.clone());
 
         log::info!("Bluetooth adapter initialized successfully");
@@ -105,14 +109,19 @@ impl BleManager {
             .await
             .map_err(|e| format!("Failed to start scan: {}", e))?;
 
-        // Wait for device to appear
-        for _ in 0..20 {
-            tokio::time::sleep(Duration::from_millis(500)).await;
+        // Wait for device to appear with exponential backoff
+        let mut total_wait = 0u64;
+        let delays = [100, 200, 300, 400, 500, 500, 500, 500, 500, 500,
+                      1000, 1000, 1000, 1000, 1000, 2000, 2000, 2000, 2000, 2000];
+
+        for delay in delays {
+            tokio::time::sleep(Duration::from_millis(delay)).await;
+            total_wait += delay;
 
             if let Ok(peripherals) = adapter.peripherals().await {
                 for peripheral in peripherals {
                     if peripheral.id().to_string() == device_id {
-                        log::info!("Found device via scan: {}", device_id);
+                        log::info!("Found device via scan: {} (waited {}ms)", device_id, total_wait);
                         let _ = adapter.stop_scan().await;
 
                         // Add to cache
@@ -126,7 +135,7 @@ impl BleManager {
         }
 
         let _ = adapter.stop_scan().await;
-        Err(format!("Device not found: {}", device_id))
+        Err(format!("Device not found after {}ms: {}", total_wait, device_id))
     }
 
     /// Start scanning for heart rate devices
@@ -210,32 +219,18 @@ impl BleManager {
                                         .iter()
                                         .any(|s| *s == HEART_RATE_SERVICE_UUID);
 
-                                    // Check if already discovered
-                                    let existing_device = {
+                                    // Single read to check if device already exists
+                                    let is_new_device = {
                                         let inner = inner_clone.read().await;
-                                        inner.discovered_devices.get(&device_id).and_then(|_| {
-                                            // Check if we need to update (name changed from Unknown)
-                                            None::<()>
-                                        })
+                                        !inner.discovered_devices.contains_key(&device_id)
                                     };
 
-                                    // Check if this is a new device or name needs update
-                                    let needs_update = {
-                                        let inner = inner_clone.read().await;
-                                        if !inner.discovered_devices.contains_key(&device_id) {
-                                            true // New device
-                                        } else {
-                                            // Check if name was "Unknown" and now has a real name
-                                            name != "Unknown"
-                                        }
-                                    };
-
-                                    if !inner_clone.read().await.discovered_devices.contains_key(&device_id) {
+                                    if is_new_device {
                                         log::info!("NEW DEVICE: '{}' (RSSI: {}, HR: {})", name, rssi, supports_hr);
 
                                         let device_info = DeviceInfo {
                                             id: device_id.clone(),
-                                            name,
+                                            name: name.clone(),
                                             rssi,
                                             supports_heart_rate: supports_hr,
                                         };
@@ -474,6 +469,9 @@ impl BleManager {
                 .await
                 .map_err(|e| format!("Failed to disconnect: {}", e))?;
         }
+
+        // Reset alert cooldowns on disconnect
+        reset_alert_cooldowns();
 
         let mut inner = self.inner.write().await;
         inner.connection_state = ConnectionState::Disconnected;

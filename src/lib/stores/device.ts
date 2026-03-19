@@ -34,6 +34,8 @@ function createDeviceStore() {
   const { subscribe, update, set } = writable<DeviceState>(initialState);
   let unlistenDevice: UnlistenFn | null = null;
   let unlistenConnection: UnlistenFn | null = null;
+  // Use a Map for O(1) device lookups
+  let deviceMap = new Map<string, DeviceInfo>();
 
   // Initialize listeners - call this in onMount
   async function initListeners() {
@@ -42,23 +44,23 @@ function createDeviceStore() {
     if (!unlistenDevice) {
       unlistenDevice = await listen<DeviceInfo>('device-discovered', (event) => {
         const device = event.payload;
-        update((state) => {
-          const existingIndex = state.discoveredDevices.findIndex((d) => d.id === device.id);
-          if (existingIndex >= 0) {
-            // Update existing device (e.g., name changed from "Unknown")
-            const updated = [...state.discoveredDevices];
-            updated[existingIndex] = device;
-            return {
-              ...state,
-              discoveredDevices: updated,
-            };
-          }
+        // O(1) lookup instead of O(n) findIndex
+        const existing = deviceMap.get(device.id);
+        if (existing) {
+          // Update existing device
+          deviceMap.set(device.id, device);
+          update((state) => ({
+            ...state,
+            discoveredDevices: Array.from(deviceMap.values()),
+          }));
+        } else {
           // Add new device
-          return {
+          deviceMap.set(device.id, device);
+          update((state) => ({
             ...state,
             discoveredDevices: [...state.discoveredDevices, device],
-          };
-        });
+          }));
+        }
       });
     }
 
@@ -114,6 +116,8 @@ function createDeviceStore() {
       }));
     },
     setDiscoveredDevices: (devices: DeviceInfo[]) => {
+      deviceMap.clear();
+      devices.forEach(d => deviceMap.set(d.id, d));
       update((state) => ({
         ...state,
         discoveredDevices: devices,
@@ -132,12 +136,16 @@ function createDeviceStore() {
       }));
     },
     clearDevices: () => {
+      deviceMap.clear();
       update((state) => ({
         ...state,
         discoveredDevices: [],
       }));
     },
-    reset: () => set(initialState),
+    reset: () => {
+      deviceMap.clear();
+      set(initialState);
+    },
     syncConnectionState: async () => {
       try {
         const state = await invoke<ConnectionState>('get_connection_state');

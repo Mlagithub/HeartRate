@@ -1,5 +1,4 @@
 import { writable } from 'svelte/store';
-import { onMount } from 'svelte';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -43,7 +42,7 @@ function createHeartRateStore() {
   let totalBpm = 0;
 
   function generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   function updateSessionStats(bpm: number) {
@@ -75,7 +74,7 @@ function createHeartRateStore() {
         },
         sessionId: sessionId,
       });
-      console.log('Saved heart rate:', measurement.bpm);
+      console.debug('Saved heart rate:', measurement.bpm);
     } catch (error) {
       console.error('Failed to save heart rate measurement:', error);
     }

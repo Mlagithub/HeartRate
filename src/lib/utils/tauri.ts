@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DeviceInfo, ConnectionState } from './stores/device';
-import type { HeartRateMeasurement } from './stores/heartRate';
-import type { AlertSettings, HeartRateRecord } from './stores/settings';
+import type { DeviceInfo, ConnectionState } from '$lib/stores/device';
+import type { HeartRateMeasurement } from '$lib/stores/heartRate';
+import type { AlertSettings } from '$lib/stores/settings';
+import type { HeartRateRecord } from '$lib/stores/history';
 
 // BLE Commands
 export async function startScan(): Promise<void> {

@@ -6,6 +6,8 @@
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
   let showZones = true;
+  let lastUpdate = 0;
+  const UPDATE_THROTTLE_MS = 250; // Throttle chart updates
 
   const MAX_POINTS = 120; // 2 minutes of data
 
@@ -86,7 +88,6 @@
             display: true,
             grid: {
               color: 'rgba(51, 65, 85, 0.5)',
-              drawBorder: false,
             },
             ticks: {
               color: '#94a3b8',
@@ -96,16 +97,12 @@
           },
           y: {
             display: true,
-            min: 40,
-            max: 200,
             grid: {
               color: 'rgba(51, 65, 85, 0.5)',
-              drawBorder: false,
             },
             ticks: {
               color: '#94a3b8',
               font: { size: 11 },
-              stepSize: 20,
             },
           },
         },
@@ -117,15 +114,24 @@
             if (!showZones) return;
             const ctx = chart.ctx;
             const yAxis = chart.scales.y;
-            const xAxis = chart.scales.x;
             const chartArea = chart.chartArea;
+
+            // Get current Y-axis range
+            const yMin = yAxis.min;
+            const yMax = yAxis.max;
 
             ctx.save();
             zoneColors.forEach(zone => {
-              const yTop = yAxis.getPixelForValue(zone.max);
-              const yBottom = yAxis.getPixelForValue(zone.min);
-              ctx.fillStyle = zone.color;
-              ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBottom - yTop);
+              // Only draw zones that overlap with visible range
+              const zoneTop = Math.min(zone.max, yMax);
+              const zoneBottom = Math.max(zone.min, yMin);
+
+              if (zoneTop > zoneBottom) {
+                const yTop = yAxis.getPixelForValue(zoneTop);
+                const yBottom = yAxis.getPixelForValue(zoneBottom);
+                ctx.fillStyle = zone.color;
+                ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBottom - yTop);
+              }
             });
             ctx.restore();
           },
@@ -134,8 +140,32 @@
     });
   }
 
+  function calculateYAxisRange(data: number[]): { min: number; max: number } {
+    if (data.length === 0) {
+      return { min: 40, max: 200 };
+    }
+
+    const dataMin = Math.min(...data);
+    const dataMax = Math.max(...data);
+
+    // Add 10% padding on each side, with minimum range of 20 BPM
+    const range = dataMax - dataMin;
+    const padding = Math.max(range * 0.15, 10);
+
+    // Round to nearest 10 for clean axis labels
+    const min = Math.max(30, Math.floor((dataMin - padding) / 10) * 10);
+    const max = Math.min(220, Math.ceil((dataMax + padding) / 10) * 10);
+
+    return { min, max };
+  }
+
   function updateChart() {
     if (!chart) return;
+
+    // Throttle updates to avoid excessive redraws
+    const now = Date.now();
+    if (now - lastUpdate < UPDATE_THROTTLE_MS) return;
+    lastUpdate = now;
 
     const history = $heartRate.history.slice(-MAX_POINTS);
     const labels = history.map((h) =>
@@ -148,9 +178,19 @@
     const data = history.map((h) => h.bpm);
     const colors = history.map((h) => getBpmColor(h.bpm));
 
+    // Calculate dynamic Y-axis range
+    const { min: yMin, max: yMax } = calculateYAxisRange(data);
+
     chart.data.labels = labels;
     chart.data.datasets[0].data = data;
-    chart.data.datasets[0].pointBackgroundColor = colors;
+    // Update point colors if the dataset supports it
+    if ('backgroundColor' in chart.data.datasets[0]) {
+      chart.data.datasets[0].backgroundColor = colors;
+    }
+
+    // Update Y-axis scale dynamically
+    chart.options.scales!.y!.min = yMin;
+    chart.options.scales!.y!.max = yMax;
 
     chart.update('none');
   }

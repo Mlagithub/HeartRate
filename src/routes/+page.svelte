@@ -20,10 +20,24 @@
   let showScanPanel = false;
   let showFullscreen = false;
 
-  // Theme toggle
+  // Theme toggle with persistence
   function toggleTheme() {
     theme = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', theme);
+    }
+  }
+
+  // Load saved theme on mount
+  function loadTheme() {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        theme = savedTheme;
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+    }
   }
 
   $: isConnected = $device.connectionState === 'Connected';
@@ -33,27 +47,21 @@
     showScanPanel = false;
   }
 
-  onMount(async () => {
+  onMount(() => {
+    // Load saved theme
+    loadTheme();
+
     // Initialize Tauri event listeners and load settings
-    await Promise.all([
+    Promise.all([
       heartRate.initListener(),
       device.initListeners(),
       settings.loadSettings(),
-    ]);
+    ]).then(() => {
+      // Sync connection state from backend
+      device.syncConnectionState();
+    });
 
-    // Sync connection state from backend
-    await device.syncConnectionState();
-
-    // Initialize database
-    try {
-      await invoke('init_database');
-    } catch (error) {
-      console.error('Failed to initialize database:', error);
-    }
-  });
-
-  // Cleanup on destroy
-  onMount(() => {
+    // Return cleanup function
     return () => {
       heartRate.cleanup();
       device.cleanup();

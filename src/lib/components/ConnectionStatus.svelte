@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
+  import { disconnectDevice } from '$lib/utils/tauri';
   import { device } from '$lib/stores/device';
 
   $: state = $device.connectionState;
   $: connectedDevice = $device.connectedDevice;
 
-  async function disconnect() {
+  async function handleDisconnect() {
     try {
-      await invoke('disconnect_device');
+      await disconnectDevice();
     } catch (error) {
       console.error('Failed to disconnect:', error);
     }
@@ -35,7 +35,7 @@
 {#if state === 'Connected' && connectedDevice}
   <div class="connected-info" title="{connectedDevice.name}">
     <span class="device-name">{connectedDevice.name}</span>
-    <button class="btn-disconnect" on:click={disconnect} title="Disconnect">
+    <button class="btn-disconnect" on:click={handleDisconnect} title="Disconnect">
       <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
         <path d="M19.61 12.91L15.7 8.99l1.42-1.42 4.91 4.92-4.92 4.92-1.41-1.42 3.91-3.91zM5.39 12.91l3.91 3.91-1.42 1.42-4.91-4.92 4.92-4.92 1.41 1.42-3.91 3.91z"/>
       </svg>

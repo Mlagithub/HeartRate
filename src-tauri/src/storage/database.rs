@@ -92,9 +92,17 @@ impl Database {
         })
     }
 
+    /// Helper to get connection with proper error handling
+    fn get_conn(&self) -> SqliteResult<std::sync::MutexGuard<'_, Connection>> {
+        self.conn.lock().map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Database lock poisoned: {}", e)
+        ))))
+    }
+
     /// Save a heart rate record
     pub fn save_heart_rate(&self, record: &HeartRateRecord) -> SqliteResult<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         conn.execute(
             "INSERT INTO heart_rate_records (bpm, sensor_contact, timestamp, session_id)
              VALUES (?1, ?2, ?3, ?4)",
@@ -111,7 +119,7 @@ impl Database {
 
     /// Get heart rate history
     pub fn get_history(&self, limit: i64, offset: i64) -> SqliteResult<Vec<HeartRateRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, bpm, sensor_contact, timestamp, session_id
              FROM heart_rate_records
@@ -143,7 +151,7 @@ impl Database {
         start_time: i64,
         end_time: i64,
     ) -> SqliteResult<Vec<HeartRateRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, bpm, sensor_contact, timestamp, session_id
              FROM heart_rate_records
@@ -171,14 +179,14 @@ impl Database {
 
     /// Clear all records
     pub fn clear_all(&self) -> SqliteResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         conn.execute("DELETE FROM heart_rate_records", [])?;
         Ok(())
     }
 
     /// Get alert settings
     pub fn get_alert_settings(&self) -> SqliteResult<AlertSettings> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         let mut stmt = conn.prepare(
             "SELECT enabled, low_threshold, high_threshold, notify_on_low, notify_on_high
              FROM alert_settings WHERE id = 1",
@@ -199,7 +207,7 @@ impl Database {
 
     /// Update alert settings
     pub fn set_alert_settings(&self, settings: &AlertSettings) -> SqliteResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.get_conn()?;
         conn.execute(
             "UPDATE alert_settings
              SET enabled = ?1, low_threshold = ?2, high_threshold = ?3,

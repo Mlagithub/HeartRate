@@ -105,24 +105,13 @@ pub async fn get_alert_settings(db: State<'_, Database>) -> Result<AlertSettings
         .map_err(|e| format!("Failed to get alert settings: {}", e))
 }
 
-/// Initialize the database
+/// Initialize the database (idempotent - database is initialized at startup)
 #[tauri::command]
 pub async fn init_database(app_handle: AppHandle) -> Result<(), String> {
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-
-    // Create directory if it doesn't exist
-    std::fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
-
-    let db_path = app_data_dir.join("health_tracker.db");
-    let db = Database::new(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
-
-    // Store the database in app state
-    app_handle.manage(db);
-
+    // Database is already initialized in main.rs setup
+    // This command exists for frontend compatibility and just verifies the database exists
+    if app_handle.try_state::<Database>().is_none() {
+        return Err("Database not initialized. Application may have failed to start properly.".to_string());
+    }
     Ok(())
 }
