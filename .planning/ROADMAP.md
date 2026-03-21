@@ -93,7 +93,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md - Exercise Storage & Detection (EX-01, EX-02, EX-03): exercise_tags table, threshold-based detection algorithm, tagging commands
-- [ ] 03-02-PLAN.md - HRV Estimation & Exercise Stats (STAT-05, STAT-06, STAT-08): BPM variance HRV, exercise vs resting comparison, exercise type statistics
+- [x] 03-02-PLAN.md - HRV Estimation & Exercise Stats (STAT-05, STAT-06, STAT-08): BPM variance HRV, exercise vs resting comparison, exercise type statistics
 - [ ] 03-03-PLAN.md - Exercise Store & Tagging UI (EX-01, EX-03): exercise.ts store, expandable session rows, activity type pills, detection prompts
 - [ ] 03-04-PLAN.md - Exercise Tab & HRV Display (STAT-05, STAT-06, STAT-08, PAGE-03): ExerciseTab component, HR zones visualization, HRV card in StatisticsTab
 

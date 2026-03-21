@@ -20,10 +20,10 @@ Requirements for Heart Rate Receiver v2.0 enhancement. Each maps to roadmap phas
 - [x] **STAT-02**: Weekly statistics view with aggregated metrics and trends
 - [x] **STAT-03**: Monthly statistics view with aggregated metrics and trends
 - [x] **STAT-04**: Yearly statistics view with aggregated metrics and trends
-- [ ] **STAT-05**: Exercise vs resting heart rate analysis with comparison charts
-- [ ] **STAT-06**: HRV (Heart Rate Variability) estimation displayed with confidence indicator noting it's estimated from BPM
+- [x] **STAT-05**: Exercise vs resting heart rate analysis with comparison charts
+- [x] **STAT-06**: HRV (Heart Rate Variability) estimation displayed with confidence indicator noting it's estimated from BPM
 - [ ] **STAT-07**: Time dimension charts showing trends over selected period
-- [ ] **STAT-08**: Exercise type comparison showing heart rate patterns by activity
+- [x] **STAT-08**: Exercise type comparison showing heart rate patterns by activity
 
 ### Exercise Tracking
 
@@ -89,10 +89,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAT-02 | Phase 2 | Complete |
 | STAT-03 | Phase 2 | Complete |
 | STAT-04 | Phase 2 | Complete |
-| STAT-05 | Phase 3 | Pending |
-| STAT-06 | Phase 3 | Pending |
+| STAT-05 | Phase 3 | Complete |
+| STAT-06 | Phase 3 | Complete |
 | STAT-07 | Phase 2 | Pending |
-| STAT-08 | Phase 3 | Pending |
+| STAT-08 | Phase 3 | Complete |
 | EX-01 | Phase 3 | Complete |
 | EX-02 | Phase 3 | Complete |
 | EX-03 | Phase 3 | Complete |
