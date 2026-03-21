@@ -17,7 +17,7 @@ Enhancement project for existing Tauri-based heart rate monitoring application. 
 
 ## Phases
 
-- [ ] **Phase 1: UI Enhancement & Data Export** - Modernize visual design and enable data portability
+- [x] **Phase 1: UI Enhancement & Data Export** - Modernize visual design and enable data portability
 - [ ] **Phase 2: Core Statistics & Analytics** - Deliver time-dimension heart rate insights
 - [ ] **Phase 3: Advanced Analytics & Exercise Tracking** - Provide exercise detection and HRV insights
 
@@ -65,7 +65,12 @@ Plans:
 4. User can switch time dimension (daily/weekly/monthly) within the statistics tab
 5. User can see trend analysis charts with moving averages over selected periods
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md - Backend Aggregation Commands (STAT-01, STAT-02, STAT-03, STAT-04): PeriodStats struct, get_statistics method, Tauri command with SQLite date aggregation
+- [ ] 02-02-PLAN.md - Statistics Store & Tab (PAGE-02): statistics.ts store, StatisticsTab component with summary cards and time dimension pills
+- [ ] 02-03-PLAN.md - Trend Chart & Tabbed History (STAT-07, PAGE-01, PAGE-04): StatisticsChart with moving average, HistoryView transformation to tabbed interface
 
 ---
 
@@ -92,8 +97,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. UI Enhancement & Data Export | 0/4 | Planned | - |
-| 2. Core Statistics & Analytics | 0/3 | Not started | - |
+| 1. UI Enhancement & Data Export | 4/4 | Complete | 2026-03-21 |
+| 2. Core Statistics & Analytics | 0/3 | Planned | - |
 | 3. Advanced Analytics & Exercise Tracking | 0/3 | Not started | - |
 
 ---
@@ -126,6 +131,17 @@ Phase 3 (Advanced/Exercise)
           01-04 (Data Export)
 ```
 
+**Phase 2 Plan Dependencies:**
+```
+        02-01 (Backend Aggregation)
+              |
+       +------+------+
+       |             |
+       v             v
+   02-02         02-03
+(Store & Tab)  (Chart & Tabs)
+```
+
 ---
 
 ## Research Flags
@@ -145,3 +161,4 @@ Phases requiring additional research during planning:
 
 *Roadmap created: 2026-03-21*
 *Phase 1 planned: 2026-03-21*
+*Phase 2 planned: 2026-03-21*
