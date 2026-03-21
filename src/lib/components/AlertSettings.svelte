@@ -1,16 +1,10 @@
 <script lang="ts">
-  import { settings, type FullscreenMode } from '$lib/stores/settings';
+  import { settings } from '$lib/stores/settings';
 
   let localSettings = { ...$settings.alertSettings };
+  let localPrefs = { ...$settings.fullscreenPreferences };
 
   $: settingsUpdated = JSON.stringify(localSettings) !== JSON.stringify($settings.alertSettings);
-
-  const fullscreenModes: { value: FullscreenMode; label: string; desc: string }[] = [
-    { value: 'simple', label: 'Simple', desc: 'BPM only' },
-    { value: 'standard', label: 'Standard', desc: 'BPM + Chart + Stats' },
-    { value: 'stats', label: 'Stats', desc: 'BPM + Statistics' },
-    { value: 'chart', label: 'Chart', desc: 'BPM + Chart' },
-  ];
 
   function saveSettings() {
     settings.updateAlertSettings(localSettings);
@@ -24,13 +18,26 @@
       notify_on_low: true,
       notify_on_high: true,
     };
-    settings.setFullscreenMode('standard');
+    localPrefs = {
+      showChart: true,
+      showStats: true,
+    };
+    settings.setFullscreenPreferences(localPrefs);
     saveSettings();
   }
 
   // Sync local settings when store updates
   $: if ($settings.alertSettings) {
     localSettings = { ...$settings.alertSettings };
+  }
+
+  $: if ($settings.fullscreenPreferences) {
+    localPrefs = { ...$settings.fullscreenPreferences };
+  }
+
+  // Persist fullscreen preference changes immediately
+  $: if (JSON.stringify(localPrefs) !== JSON.stringify($settings.fullscreenPreferences)) {
+    settings.setFullscreenPreferences(localPrefs);
   }
 </script>
 
@@ -46,17 +53,32 @@
       </div>
     </div>
 
-    <div class="mode-grid">
-      {#each fullscreenModes as mode}
-        <button
-          class="mode-card"
-          class:active={$settings.fullscreenMode === mode.value}
-          on:click={() => settings.setFullscreenMode(mode.value)}
-        >
-          <span class="mode-label">{mode.label}</span>
-          <span class="mode-desc">{mode.desc}</span>
-        </button>
-      {/each}
+    <div class="fullscreen-options">
+      <!-- Show Chart Toggle -->
+      <div class="toggle-setting">
+        <div class="setting-info">
+          <span class="setting-label">Show Chart</span>
+          <span class="setting-desc">Display heart rate curve in fullscreen mode</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" bind:checked={localPrefs.showChart} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Show Stats Toggle -->
+      <div class="toggle-setting">
+        <div class="setting-info">
+          <span class="setting-label">Show Stats</span>
+          <span class="setting-desc">Display min/avg/max statistics in fullscreen mode</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" bind:checked={localPrefs.showStats} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <p class="bpm-note">BPM display is always visible in fullscreen mode</p>
     </div>
   </div>
 
@@ -218,48 +240,18 @@
     color: var(--text-primary);
   }
 
-  .mode-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+  .fullscreen-options {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
   }
 
-  .mode-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 16px;
-    background: var(--bg-color);
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .mode-card:hover {
-    border-color: var(--primary-color);
-    background: var(--card-bg-hover);
-  }
-
-  .mode-card.active {
-    border-color: var(--primary-color);
-    background: var(--primary-light);
-  }
-
-  .mode-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .mode-desc {
+  .bpm-note {
+    margin: 8px 0 0;
     font-size: 12px;
     color: var(--text-muted);
-  }
-
-  .mode-card.active .mode-label {
-    color: var(--primary-color);
+    text-align: center;
+    font-style: italic;
   }
 
   .section-content {
@@ -446,7 +438,6 @@
   }
 
   @media (max-width: 500px) {
-    .mode-grid,
     .thresholds-grid {
       grid-template-columns: 1fr;
     }
