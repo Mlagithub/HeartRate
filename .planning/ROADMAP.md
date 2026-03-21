@@ -44,7 +44,7 @@ Enhancement project for existing Tauri-based heart rate monitoring application. 
 
 Plans:
 - [x] 01-01-PLAN.md - UI Theme & Layout (UI-01, UI-02): Teal/green color palette, increased spacing, dark theme default
-- [ ] 01-02-PLAN.md - Fullscreen Preferences (UI-03): Checkbox toggles for chart/stats visibility in fullscreen mode
+- [x] 01-02-PLAN.md - Fullscreen Preferences (UI-03): Checkbox toggles for chart/stats visibility in fullscreen mode
 - [x] 01-03-PLAN.md - Chart Time Window Toggle (UI-04): Time window pills [2m] [5m] [10m] [30m] [All] for chart X-axis
 - [ ] 01-04-PLAN.md - Data Export Feature (EXP-01, EXP-02, EXP-03, EXP-04): Export modal, CSV/JSON format, date range selection, native dialogs
 
