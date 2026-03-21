@@ -9,8 +9,8 @@ Requirements for Heart Rate Receiver v2.0 enhancement. Each maps to roadmap phas
 
 ### UI Enhancement
 
-- [ ] **UI-01**: Minimalist health-focused visual design with clean typography, ample whitespace, and calming color palette
-- [ ] **UI-02**: Full-screen mode with auto-scaling Y-axis that amplifies small heart rate fluctuations (e.g., 72→75 BPM visible)
+- [x] **UI-01**: Minimalist health-focused visual design with clean typography, ample whitespace, and calming color palette
+- [x] **UI-02**: Full-screen mode with auto-scaling Y-axis that amplifies small heart rate fluctuations (e.g., 72→75 BPM visible)
 - [ ] **UI-03**: Configurable full-screen UI elements (heart rate value, curve, session stats, status info) configurable in main settings
 - [ ] **UI-04**: Heart rate curve X-axis toggle: recent N minutes (customizable by user) vs all data — available in main view, fullscreen, and statistics page
 
@@ -81,8 +81,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | Phase 1 | Pending |
-| UI-02 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Complete |
+| UI-02 | Phase 1 | Complete |
 | UI-03 | Phase 1 | Pending |
 | UI-04 | Phase 1 | Pending |
 | STAT-01 | Phase 2 | Pending |
