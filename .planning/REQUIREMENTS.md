@@ -27,9 +27,9 @@ Requirements for Heart Rate Receiver v2.0 enhancement. Each maps to roadmap phas
 
 ### Exercise Tracking
 
-- [ ] **EX-01**: Manual exercise tagging — user can mark session as exercise with optional type
-- [ ] **EX-02**: Automatic exercise detection based on heart rate patterns (sustained elevated HR, recovery patterns)
-- [ ] **EX-03**: Exercise detection confidence indicator with user confirmation prompt
+- [x] **EX-01**: Manual exercise tagging — user can mark session as exercise with optional type
+- [x] **EX-02**: Automatic exercise detection based on heart rate patterns (sustained elevated HR, recovery patterns)
+- [x] **EX-03**: Exercise detection confidence indicator with user confirmation prompt
 
 ### Data Export
 
@@ -93,9 +93,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAT-06 | Phase 3 | Pending |
 | STAT-07 | Phase 2 | Pending |
 | STAT-08 | Phase 3 | Pending |
-| EX-01 | Phase 3 | Pending |
-| EX-02 | Phase 3 | Pending |
-| EX-03 | Phase 3 | Pending |
+| EX-01 | Phase 3 | Complete |
+| EX-02 | Phase 3 | Complete |
+| EX-03 | Phase 3 | Complete |
 | EXP-01 | Phase 1 | Complete |
 | EXP-02 | Phase 1 | Complete |
 | EXP-03 | Phase 1 | Complete |
