@@ -46,6 +46,7 @@ fn main() {
             commands::get_connection_state,
             commands::get_connected_device,
             commands::get_heart_rate_history,
+            commands::get_heart_rate_history_range,
             commands::save_heart_rate,
             commands::set_alert_settings,
             commands::get_alert_settings,

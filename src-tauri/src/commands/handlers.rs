@@ -69,6 +69,17 @@ pub async fn get_heart_rate_history(
         .map_err(|e| format!("Failed to get history: {}", e))
 }
 
+/// Get heart rate history for a time range
+#[tauri::command]
+pub async fn get_heart_rate_history_range(
+    db: State<'_, Database>,
+    start_time: i64,
+    end_time: i64,
+) -> Result<Vec<HeartRateRecord>, String> {
+    db.get_history_range(start_time, end_time)
+        .map_err(|e| format!("Failed to get history range: {}", e))
+}
+
 /// Save heart rate measurement
 #[tauri::command]
 pub async fn save_heart_rate(
