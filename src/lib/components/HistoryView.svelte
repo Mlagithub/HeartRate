@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { history } from '$lib/stores/history';
-  import { format } from 'date-fns';
+  import { exercise, ACTIVITY_TYPES, type ActivityType, type DetectionResult } from '$lib/stores/exercise';
+  import { format, formatDuration, intervalToDuration } from 'date-fns';
   import ExportModal from './ExportModal.svelte';
   import StatisticsTab from './StatisticsTab.svelte';
 
@@ -11,12 +12,29 @@
   // History tab state
   onMount(() => {
     history.loadHistory(50);
+    exercise.loadSessions(50);
   });
 
   let showExportModal = false;
 
+  // Exercise tagging state
+  let expandedSession: string | null = null;
+  let selectedActivity: ActivityType = 'Running';
+
   function formatTimestamp(ts: number): string {
     return format(new Date(ts), 'MMM d, yyyy HH:mm:ss');
+  }
+
+  function formatSessionTime(ts: number): string {
+    return format(new Date(ts), 'MMM d, HH:mm');
+  }
+
+  function formatDurationMs(start: number, end: number): string {
+    const duration = intervalToDuration({ start: new Date(start), end: new Date(end) });
+    if (duration.hours && duration.hours > 0) {
+      return `${duration.hours}h ${duration.minutes ?? 0}m`;
+    }
+    return `${duration.minutes ?? 0}m`;
   }
 
   function getBpmClass(bpm: number): string {
@@ -24,6 +42,33 @@
     if (bpm < 100) return 'normal';
     if (bpm < 140) return 'elevated';
     return 'high';
+  }
+
+  function toggleSession(sessionId: string) {
+    expandedSession = expandedSession === sessionId ? null : sessionId;
+  }
+
+  async function handleTagExercise(sessionId: string) {
+    await exercise.tagExercise(sessionId, selectedActivity, true);
+    expandedSession = null;
+  }
+
+  async function confirmDetection(sessionId: string, detection: DetectionResult) {
+    // Map detection reason to activity type heuristically
+    const detectedType: ActivityType = detection.reason.toLowerCase().includes('running')
+      ? 'Running'
+      : detection.reason.toLowerCase().includes('cycling')
+        ? 'Cycling'
+        : detection.reason.toLowerCase().includes('swimming')
+          ? 'Swimming'
+          : detection.reason.toLowerCase().includes('gym')
+            ? 'Gym'
+            : 'Other';
+    await exercise.tagExercise(sessionId, detectedType, true);
+  }
+
+  async function dismissDetection(sessionId: string) {
+    await exercise.tagExercise(sessionId, 'Other', false);
   }
 </script>
 
@@ -61,12 +106,12 @@
           <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
             <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
           </svg>
-          <h3>Recent Records</h3>
+          <h3>Sessions</h3>
         </div>
         <div class="header-buttons">
           <button
             class="btn-refresh"
-            on:click={() => history.loadHistory(50)}
+            on:click={() => { history.loadHistory(50); exercise.loadSessions(50); }}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
               <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -85,40 +130,88 @@
         </div>
       </div>
 
-      {#if $history.isLoading}
+      {#if $exercise.isLoading}
         <div class="loading-state">
           <div class="spinner"></div>
-          <span>Loading history...</span>
+          <span>Loading sessions...</span>
         </div>
-      {:else if $history.error}
+      {:else if $exercise.error}
         <div class="error-state">
           <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
           </svg>
-          <span>Error: {$history.error}</span>
+          <span>Error: {$exercise.error}</span>
         </div>
-      {:else if $history.records.length === 0}
+      {:else if $exercise.sessions.length === 0}
         <div class="empty-state">
           <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
           </svg>
-          <span>No history records found</span>
+          <span>No sessions found</span>
           <span class="hint">Connect a device to start recording heart rate data</span>
         </div>
       {:else}
-        <div class="records-list">
-          {#each $history.records as record (record.id)}
-            <div class="record">
-              <div class="record-time">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                  <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                </svg>
-                {formatTimestamp(record.timestamp)}
+        <div class="sessions-list">
+          {#each $exercise.sessions as session (session.session_id)}
+            {@const detection = $exercise.detections.get(session.session_id)}
+            <div class="session-row" class:expanded={expandedSession === session.session_id}>
+              <div class="session-summary" on:click={() => toggleSession(session.session_id)}>
+                <div class="session-info">
+                  <svg class="expand-icon" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                  </svg>
+                  <span class="session-time">{formatSessionTime(session.start_time)}</span>
+                  <span class="session-duration">{formatDurationMs(session.start_time, session.end_time)}</span>
+                  <span class="session-records">{session.record_count} records</span>
+                </div>
+                <div class="session-metrics">
+                  {#if session.exercise_tag}
+                    <span class="exercise-badge">{session.exercise_tag.exercise_type}</span>
+                  {/if}
+                  <div class="record-bpm {getBpmClass(session.avg_bpm)}">
+                    <span class="bpm-value">{Math.round(session.avg_bpm)}</span>
+                    <span class="bpm-unit">avg</span>
+                  </div>
+                </div>
               </div>
-              <div class="record-bpm {getBpmClass(record.bpm)}">
-                <span class="bpm-value">{record.bpm}</span>
-                <span class="bpm-unit">BPM</span>
-              </div>
+
+              {#if expandedSession === session.session_id}
+                <div class="session-details">
+                  {#if !session.exercise_tag}
+                    {#if detection && detection.is_exercise && detection.confidence >= 0.5}
+                      <div class="detection-prompt">
+                        <span class="confidence">Detected exercise ({Math.round(detection.confidence * 100)}% confidence)</span>
+                        <span class="prompt-text">Was this exercise?</span>
+                        <button class="btn-confirm" on:click={() => confirmDetection(session.session_id, detection)}>Yes</button>
+                        <button class="btn-dismiss" on:click={() => dismissDetection(session.session_id)}>No</button>
+                      </div>
+                    {/if}
+
+                    <div class="tagging-section">
+                      <span class="tag-label">Tag as exercise:</span>
+                      <div class="activity-pills">
+                        {#each ACTIVITY_TYPES as type}
+                          <button
+                            class="pill"
+                            class:active={selectedActivity === type}
+                            on:click={() => selectedActivity = type}
+                          >
+                            {type}
+                          </button>
+                        {/each}
+                      </div>
+                      <button class="btn-tag" on:click={() => handleTagExercise(session.session_id)}>
+                        Tag as Exercise
+                      </button>
+                    </div>
+                  {:else}
+                    <div class="tagged-info">
+                      <span class="tagged-label">Tagged as:</span>
+                      <span class="tagged-type">{session.exercise_tag.exercise_type}</span>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
           {/each}
         </div>
@@ -176,9 +269,9 @@
     opacity: 0.8;
   }
 
-  /* History tab styles (preserve existing) */
+  /* History tab styles */
   .history-tab {
-    /* No additional styles needed, content fills the space */
+    /* Content fills the space */
   }
 
   .history-header {
@@ -285,7 +378,8 @@
     opacity: 0.7;
   }
 
-  .records-list {
+  /* Sessions list styles */
+  .sessions-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -294,30 +388,64 @@
     padding-right: 4px;
   }
 
-  .record {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 16px;
+  .session-row {
     background: var(--bg-color);
     border-radius: 10px;
     transition: all 0.2s ease;
   }
 
-  .record:hover {
+  .session-row:hover {
     background: var(--card-bg-hover);
   }
 
-  .record-time {
+  .session-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+  }
+
+  .session-info {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: 12px;
+  }
+
+  .expand-icon {
+    opacity: 0.5;
+    transition: transform 0.2s ease;
+  }
+
+  .session-row.expanded .expand-icon {
+    transform: rotate(90deg);
+  }
+
+  .session-time {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .session-duration,
+  .session-records {
+    font-size: 12px;
     color: var(--text-secondary);
   }
 
-  .record-time svg {
-    opacity: 0.6;
+  .session-metrics {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .exercise-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    border-radius: 12px;
   }
 
   .record-bpm {
@@ -369,5 +497,135 @@
   .bpm-unit {
     font-size: 11px;
     color: var(--text-muted);
+  }
+
+  /* Session details (expanded) */
+  .session-details {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-color);
+    border-radius: 0 0 10px 10px;
+  }
+
+  .detection-prompt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--warning-light);
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+
+  .detection-prompt .confidence {
+    font-size: 12px;
+    color: var(--warning-color);
+  }
+
+  .detection-prompt .prompt-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .btn-confirm,
+  .btn-dismiss {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-confirm {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-confirm:hover {
+    opacity: 0.9;
+  }
+
+  .btn-dismiss {
+    background: var(--border-color);
+    color: var(--text-secondary);
+  }
+
+  .btn-dismiss:hover {
+    background: var(--text-muted);
+    color: white;
+  }
+
+  .tagging-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tag-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .activity-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pill {
+    font-size: 12px;
+    padding: 6px 14px;
+    background: var(--bg-color);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .pill:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .pill.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+  }
+
+  .btn-tag {
+    font-size: 13px;
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-self: flex-start;
+  }
+
+  .btn-tag:hover {
+    opacity: 0.9;
+  }
+
+  .tagged-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tagged-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .tagged-type {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary-color);
   }
 </style>
