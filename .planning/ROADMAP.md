@@ -70,7 +70,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md - Backend Aggregation Commands (STAT-01, STAT-02, STAT-03, STAT-04): PeriodStats struct, get_statistics method, Tauri command with SQLite date aggregation
 - [x] 02-02-PLAN.md - Statistics Store & Tab (PAGE-02): statistics.ts store, StatisticsTab component with summary cards and time dimension pills
-- [ ] 02-03-PLAN.md - Trend Chart & Tabbed History (STAT-07, PAGE-01, PAGE-04): StatisticsChart with moving average, HistoryView transformation to tabbed interface
+- [x] 02-03-PLAN.md - Trend Chart & Tabbed History (STAT-07, PAGE-01, PAGE-04): StatisticsChart with moving average, HistoryView transformation to tabbed interface
 
 ---
 
@@ -89,7 +89,13 @@ Plans:
 4. User can see HRV estimation with clear labeling that indicates it is estimated from BPM (not RR-intervals)
 5. User can compare heart rate patterns across different exercise types
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md - Exercise Storage & Detection (EX-01, EX-02, EX-03): exercise_tags table, threshold-based detection algorithm, tagging commands
+- [ ] 03-02-PLAN.md - HRV Estimation & Exercise Stats (STAT-05, STAT-06, STAT-08): BPM variance HRV, exercise vs resting comparison, exercise type statistics
+- [ ] 03-03-PLAN.md - Exercise Store & Tagging UI (EX-01, EX-03): exercise.ts store, expandable session rows, activity type pills, detection prompts
+- [ ] 03-04-PLAN.md - Exercise Tab & HRV Display (STAT-05, STAT-06, STAT-08, PAGE-03): ExerciseTab component, HR zones visualization, HRV card in StatisticsTab
 
 ---
 
@@ -98,8 +104,8 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. UI Enhancement & Data Export | 4/4 | Complete | 2026-03-21 |
-| 2. Core Statistics & Analytics | 0/3 | Planned | - |
-| 3. Advanced Analytics & Exercise Tracking | 0/3 | Not started | - |
+| 2. Core Statistics & Analytics | 3/3 | Complete | 2026-03-21 |
+| 3. Advanced Analytics & Exercise Tracking | 0/4 | Planned | - |
 
 ---
 
@@ -142,6 +148,17 @@ Phase 3 (Advanced/Exercise)
 (Store & Tab)  (Chart & Tabs)
 ```
 
+**Phase 3 Plan Dependencies:**
+```
+   Wave 1 (parallel)          Wave 2 (sequential)
+   +----------------+         +------------------+
+   |                |         |                  |
+   v                v         v                  v
+03-01           03-02  -->  03-03  -------->  03-04
+(Storage &      (HRV &      (Store &         (Exercise Tab
+Detection)       Stats)      Tagging UI)      & HRV Display)
+```
+
 ---
 
 ## Research Flags
@@ -149,16 +166,17 @@ Phase 3 (Advanced/Exercise)
 Phases requiring additional research during planning:
 
 **Phase 3:** HRV implementation decision point
-- Option A: Store RR-intervals for accurate HRV (more storage, better accuracy)
-- Option B: Estimate from BPM variance (current plan, must label clearly)
-- Research recommendation: Store RR-intervals since BLE already parses them
+- Decision made: Estimate from BPM variance (per D-09)
+- Label clearly as "(estimated)" per D-11
 
 **Phase 3:** Exercise detection algorithm
-- Threshold-based vs. ML-based detection needs design during planning
-- Requires personalized baseline (3-7 days of data)
+- Decision made: Threshold-based detection (per D-05)
+- Requires 7 days baseline data (per D-06)
+- Confidence threshold >= 0.5 for prompts (per D-08)
 
 ---
 
 *Roadmap created: 2026-03-21*
 *Phase 1 planned: 2026-03-21*
 *Phase 2 planned: 2026-03-21*
+*Phase 3 planned: 2026-03-21*
