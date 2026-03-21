@@ -9,12 +9,27 @@ export interface AlertSettings {
   notify_on_high: boolean;
 }
 
+/**
+ * Preferences for fullscreen display configuration.
+ * Controls visibility of chart and stats elements in fullscreen mode.
+ */
+export interface FullscreenPreferences {
+  showChart: boolean;
+  showStats: boolean;
+  // BPM always visible per design decision
+}
+
+/**
+ * @deprecated Use FullscreenPreferences instead for granular control.
+ * Preset modes are being replaced with checkbox toggles.
+ */
 export type FullscreenMode = 'simple' | 'standard' | 'stats' | 'chart';
 
 export interface SettingsState {
   alertSettings: AlertSettings;
   sessionId: string;
   fullscreenMode: FullscreenMode;
+  fullscreenPreferences: FullscreenPreferences;
 }
 
 function createSettingsStore() {
@@ -30,6 +45,10 @@ function createSettingsStore() {
     alertSettings: defaultAlertSettings,
     sessionId: generateSessionId(),
     fullscreenMode: 'standard',
+    fullscreenPreferences: {
+      showChart: true,
+      showStats: true,
+    },
   };
 
   const { subscribe, update, set } = writable<SettingsState>(initialState);
@@ -70,6 +89,12 @@ function createSettingsStore() {
       update((state) => ({
         ...state,
         fullscreenMode: mode,
+      }));
+    },
+    setFullscreenPreferences: (prefs: Partial<FullscreenPreferences>) => {
+      update((state) => ({
+        ...state,
+        fullscreenPreferences: { ...state.fullscreenPreferences, ...prefs },
       }));
     },
     newSession: () => {
