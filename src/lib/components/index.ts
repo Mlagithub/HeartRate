@@ -6,3 +6,4 @@ export { default as AlertSettings } from './AlertSettings.svelte';
 export { default as ConnectionStatus } from './ConnectionStatus.svelte';
 export { default as HistoryView } from './HistoryView.svelte';
 export { default as ExportModal } from './ExportModal.svelte';
+export { default as StatisticsTab } from './StatisticsTab.svelte';
