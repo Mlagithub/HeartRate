@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { statistics } from '$lib/stores/statistics';
+  import StatisticsChart from './StatisticsChart.svelte';
 
   // Time dimension options
   const DIMENSIONS = ['daily', 'weekly', 'monthly', 'yearly'] as const;
@@ -170,10 +171,10 @@
       </div>
     </div>
 
-    <!-- Trend Chart Placeholder (will be added in 02-03) -->
+    <!-- Trend Chart -->
     <div class="chart-section">
-      <!-- StatisticsChart component will be added here in plan 02-03 -->
-      <p class="chart-placeholder">Trend chart will display here</p>
+      <h4>Trend Analysis</h4>
+      <StatisticsChart />
     </div>
   {/if}
 </div>
@@ -327,6 +328,13 @@
 
   .chart-section {
     margin-top: 8px;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
   }
 
   .chart-placeholder {
