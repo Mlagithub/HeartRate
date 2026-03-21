@@ -222,6 +222,8 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 4px;
   }
 
   .stat-value {
