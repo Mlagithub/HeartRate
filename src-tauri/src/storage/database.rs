@@ -35,6 +35,16 @@ impl Default for AlertSettings {
     }
 }
 
+/// Aggregated statistics for a time period
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeriodStats {
+    pub period: String,        // ISO date string (YYYY-MM-DD, YYYY-WW, YYYY-MM, YYYY)
+    pub min_bpm: u16,
+    pub max_bpm: u16,
+    pub avg_bpm: f64,
+    pub record_count: i64,
+}
+
 /// Database manager for heart rate data
 pub struct Database {
     conn: Mutex<Connection>,
@@ -222,5 +232,53 @@ impl Database {
             ],
         )?;
         Ok(())
+    }
+
+    /// Get aggregated statistics by time dimension
+    pub fn get_statistics(
+        &self,
+        dimension: &str,  // "daily", "weekly", "monthly", "yearly"
+        start_time: Option<i64>,
+        end_time: Option<i64>,
+    ) -> SqliteResult<Vec<PeriodStats>> {
+        let conn = self.get_conn()?;
+
+        let period_expr = match dimension {
+            "daily" => "date(timestamp / 1000, 'unixepoch', 'localtime')",
+            "weekly" => "strftime('%Y-%W', timestamp / 1000, 'unixepoch', 'localtime')",
+            "monthly" => "strftime('%Y-%m', timestamp / 1000, 'unixepoch', 'localtime')",
+            "yearly" => "strftime('%Y', timestamp / 1000, 'unixepoch', 'localtime')",
+            _ => return Err(rusqlite::Error::InvalidParameterName("Invalid dimension".into())),
+        };
+
+        let sql = format!(
+            "SELECT
+                {} as period,
+                MIN(bpm) as min_bpm,
+                MAX(bpm) as max_bpm,
+                AVG(bpm) as avg_bpm,
+                COUNT(*) as record_count
+             FROM heart_rate_records
+             WHERE (?1 IS NULL OR timestamp >= ?1)
+               AND (?2 IS NULL OR timestamp <= ?2)
+             GROUP BY period
+             ORDER BY period ASC",
+            period_expr
+        );
+
+        let mut stmt = conn.prepare(&sql)?;
+        let stats = stmt
+            .query_map(params![start_time, end_time], |row| {
+                Ok(PeriodStats {
+                    period: row.get(0)?,
+                    min_bpm: row.get::<_, i64>(1)? as u16,
+                    max_bpm: row.get::<_, i64>(2)? as u16,
+                    avg_bpm: row.get(3)?,
+                    record_count: row.get(4)?,
+                })
+            })?
+            .collect::<SqliteResult<Vec<_>>>()?;
+
+        Ok(stats)
     }
 }
