@@ -1,11 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
   import { statistics } from '$lib/stores/statistics';
   import StatisticsChart from './StatisticsChart.svelte';
 
   // Time dimension options
   const DIMENSIONS = ['daily', 'weekly', 'monthly', 'yearly'] as const;
   type Dimension = typeof DIMENSIONS[number];
+
+  // HRV types (from 03-04 PLAN, D-09, D-10, D-11, D-12)
+  interface HRVResult {
+    hrv_value: number;
+    is_estimated: boolean;
+    confidence: string;
+    data_points: number;
+    period_start: number;
+    period_end: number;
+  }
 
   // Current period stats for summary cards (most recent period)
   $: latestStats = $statistics.stats.length > 0
@@ -16,6 +27,11 @@
   $: previousStats = $statistics.stats.length > 1
     ? $statistics.stats[$statistics.stats.length - 2]
     : null;
+
+  // HRV state
+  let hrvData: HRVResult | null = null;
+  let hrvLoading = false;
+  let hrvError: string | null = null;
 
   function selectDimension(dim: Dimension) {
     statistics.loadStatistics(dim);
@@ -47,11 +63,26 @@
     };
   }
 
+  async function loadHRV() {
+    hrvLoading = true;
+    hrvError = null;
+    try {
+      hrvData = await invoke<HRVResult | null>('get_hrv_estimate', {
+        startTime: null,
+        endTime: null
+      });
+    } catch (e) {
+      hrvError = String(e);
+    }
+    hrvLoading = false;
+  }
+
   onMount(() => {
     // Load default dimension (weekly per D-06)
     if ($statistics.stats.length === 0) {
       statistics.loadStatistics('weekly');
     }
+    loadHRV();
   });
 </script>
 
@@ -167,6 +198,28 @@
         <div class="stat-card">
           <div class="stat-label">Records</div>
           <div class="stat-value count">{latestStats?.record_count ?? '--'}</div>
+        </div>
+
+        <!-- HRV Estimation Card (D-09, D-11, D-12) -->
+        <div class="stat-card hrv">
+          <div class="stat-label">
+            HRV
+            {#if hrvData?.is_estimated}
+              <span class="estimated-badge">(estimated)</span>
+            {/if}
+          </div>
+          {#if hrvLoading}
+            <div class="stat-value">...</div>
+          {:else if hrvData}
+            <div class="stat-value">{hrvData.hrv_value.toFixed(1)}</div>
+            <div class="stat-unit">ms</div>
+            <div class="hrv-confidence {hrvData.confidence}">
+              {hrvData.confidence} confidence
+            </div>
+          {:else}
+            <div class="stat-value">--</div>
+            <div class="stat-unit">ms</div>
+          {/if}
         </div>
       </div>
     </div>
@@ -310,6 +363,26 @@
   .stat-value.max { color: var(--danger-color); }
   .stat-value.avg { color: var(--primary-color); }
   .stat-value.count { color: var(--text-secondary); font-size: 22px; }
+
+  .estimated-badge {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  .hrv-confidence {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+
+  .hrv-confidence.high { color: var(--success-color); }
+  .hrv-confidence.medium { color: var(--warning-color); }
+  .hrv-confidence.low { color: var(--text-muted); }
+
+  .stat-card.hrv .stat-value {
+    color: var(--primary-color);
+  }
 
   .stat-trend {
     font-size: 11px;
