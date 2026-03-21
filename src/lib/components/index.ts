@@ -5,3 +5,4 @@ export { default as DeviceCard } from './DeviceCard.svelte';
 export { default as AlertSettings } from './AlertSettings.svelte';
 export { default as ConnectionStatus } from './ConnectionStatus.svelte';
 export { default as HistoryView } from './HistoryView.svelte';
+export { default as ExportModal } from './ExportModal.svelte';
