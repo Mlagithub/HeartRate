@@ -1,6 +1,6 @@
 <script lang="ts">
   import { heartRate } from '$lib/stores/heartRate';
-  import { settings, type FullscreenMode } from '$lib/stores/settings';
+  import { settings } from '$lib/stores/settings';
   import { onMount, onDestroy } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -9,7 +9,7 @@
   $: currentBpm = $heartRate.current?.bpm ?? '--';
   $: history = $heartRate.history;
   $: stats = $heartRate.stats;
-  $: mode = $settings.fullscreenMode;
+  $: prefs = $settings.fullscreenPreferences;
 
   function getZoneColor(bpm: number): string {
     if (bpm < 60) return '#94a3b8';
@@ -72,8 +72,8 @@
 
     <div class="unit">BPM</div>
 
-    <!-- Mini Chart (for standard and chart modes) -->
-    {#if (mode === 'standard' || mode === 'chart') && history.length > 1}
+    <!-- Mini Chart (when showChart is enabled) -->
+    {#if prefs.showChart && history.length > 1}
       <div class="chart">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none">
           <polyline
@@ -88,8 +88,8 @@
       </div>
     {/if}
 
-    <!-- Stats (for standard and stats modes) -->
-    {#if (mode === 'standard' || mode === 'stats') && stats.count > 0}
+    <!-- Stats (when showStats is enabled) -->
+    {#if prefs.showStats && stats.count > 0}
       <div class="stats">
         <div class="stat">
           <span class="label">Min</span>
