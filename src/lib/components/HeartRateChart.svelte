@@ -11,6 +11,17 @@
 
   const MAX_POINTS = 120; // 2 minutes of data
 
+  // Time window selection
+  let selectedWindow: string = '5m'; // Default per D-09
+
+  const TIME_WINDOWS: Record<string, number> = {
+    '2m': 2 * 60 * 1000,
+    '5m': 5 * 60 * 1000,
+    '10m': 10 * 60 * 1000,
+    '30m': 30 * 60 * 1000,
+    'All': Infinity
+  };
+
   // Zone backgrounds for chart
   const zoneColors = [
     { min: 0, max: 60, color: 'rgba(148, 163, 184, 0.1)' },
@@ -159,6 +170,16 @@
     return { min, max };
   }
 
+  function getFilteredHistory() {
+    const now = Date.now();
+    const duration = TIME_WINDOWS[selectedWindow];
+    if (duration === Infinity) {
+      return $heartRate.history;
+    }
+    const cutoff = now - duration;
+    return $heartRate.history.filter(h => h.timestamp >= cutoff);
+  }
+
   function updateChart() {
     if (!chart) return;
 
@@ -167,7 +188,7 @@
     if (now - lastUpdate < UPDATE_THROTTLE_MS) return;
     lastUpdate = now;
 
-    const history = $heartRate.history.slice(-MAX_POINTS);
+    const history = getFilteredHistory();
     const labels = history.map((h) =>
       new Date(h.timestamp).toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -214,10 +235,23 @@
 <div class="chart-container glass-card">
   <div class="chart-header">
     <h3>Heart Rate Trend</h3>
-    <label class="toggle-label">
-      <input type="checkbox" bind:checked={showZones} />
-      <span class="toggle-text">Show Zones</span>
-    </label>
+    <div class="header-controls">
+      <div class="time-window-pills">
+        {#each Object.keys(TIME_WINDOWS) as window}
+          <button
+            class="pill"
+            class:active={selectedWindow === window}
+            on:click={() => selectedWindow = window}
+          >
+            {window}
+          </button>
+        {/each}
+      </div>
+      <label class="toggle-label">
+        <input type="checkbox" bind:checked={showZones} />
+        <span class="toggle-text">Show Zones</span>
+      </label>
+    </div>
   </div>
 
   <div class="chart-wrapper">
@@ -252,6 +286,39 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .time-window-pills {
+    display: flex;
+    gap: 6px;
+  }
+
+  .pill {
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .pill.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+  }
+
+  .pill:hover:not(.active) {
+    border-color: var(--primary-color);
   }
 
   h3 {
