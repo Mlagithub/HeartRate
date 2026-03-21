@@ -23,6 +23,8 @@ anyhow = "1"
 thiserror = "1"
 tauri-plugin-notification = "2"
 tauri-plugin-store = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 log = "0.4"
 env_logger = "0.11"
 
