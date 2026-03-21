@@ -40,12 +40,13 @@ Enhancement project for existing Tauri-based heart rate monitoring application. 
 4. User can export heart rate data to CSV or JSON file using native file save dialog
 5. User can select date range for exports (all time or specific period)
 
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] 01-01-PLAN.md - UI Theme & Layout (UI-01, UI-02): Teal/green color palette, increased spacing, dark theme default
-- [ ] 01-02-PLAN.md - Fullscreen Config & Time Window (UI-03, UI-04): Checkbox toggles for fullscreen, time window pills for chart
-- [ ] 01-03-PLAN.md - Data Export Feature (EXP-01, EXP-02, EXP-03, EXP-04): Export modal, CSV/JSON format, date range selection, native dialogs
+- [ ] 01-02-PLAN.md - Fullscreen Preferences (UI-03): Checkbox toggles for chart/stats visibility in fullscreen mode
+- [ ] 01-03-PLAN.md - Chart Time Window Toggle (UI-04): Time window pills [2m] [5m] [10m] [30m] [All] for chart X-axis
+- [ ] 01-04-PLAN.md - Data Export Feature (EXP-01, EXP-02, EXP-03, EXP-04): Export modal, CSV/JSON format, date range selection, native dialogs
 
 ---
 
@@ -91,7 +92,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. UI Enhancement & Data Export | 0/3 | Planned | - |
+| 1. UI Enhancement & Data Export | 0/4 | Planned | - |
 | 2. Core Statistics & Analytics | 0/3 | Not started | - |
 | 3. Advanced Analytics & Exercise Tracking | 0/3 | Not started | - |
 
@@ -111,13 +112,18 @@ Phase 3 (Advanced/Exercise)
 
 **Phase 1 Plan Dependencies:**
 ```
-01-01 (UI Theme & Layout)
-    |
-    v
-01-02 (Fullscreen Config & Time Window)
-    |
-    v
-01-03 (Data Export Feature)
+        01-01 (UI Theme & Layout)
+              |
+       +------+------+
+       |             |
+       v             v
+   01-02         01-03
+(Fullscreen)  (Time Window)
+       |             |
+       +------+------+
+              |
+              v
+          01-04 (Data Export)
 ```
 
 ---
