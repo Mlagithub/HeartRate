@@ -41,7 +41,7 @@ Requirements for Heart Rate Receiver v2.0 enhancement. Each maps to roadmap phas
 ### Statistics Page
 
 - [ ] **PAGE-01**: Transform history page into tabbed interface with "History" and "Statistics" tabs
-- [ ] **PAGE-02**: Time dimension selector (daily/weekly/monthly) in statistics tab
+- [x] **PAGE-02**: Time dimension selector (daily/weekly/monthly) in statistics tab
 - [ ] **PAGE-03**: Exercise type comparison view in statistics tab
 - [ ] **PAGE-04**: Trend analysis charts with moving averages
 
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXP-03 | Phase 1 | Complete |
 | EXP-04 | Phase 1 | Complete |
 | PAGE-01 | Phase 2 | Pending |
-| PAGE-02 | Phase 2 | Pending |
+| PAGE-02 | Phase 2 | Complete |
 | PAGE-03 | Phase 3 | Pending |
 | PAGE-04 | Phase 2 | Pending |
 

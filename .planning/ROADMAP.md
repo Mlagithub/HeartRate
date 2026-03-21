@@ -69,7 +69,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md - Backend Aggregation Commands (STAT-01, STAT-02, STAT-03, STAT-04): PeriodStats struct, get_statistics method, Tauri command with SQLite date aggregation
-- [ ] 02-02-PLAN.md - Statistics Store & Tab (PAGE-02): statistics.ts store, StatisticsTab component with summary cards and time dimension pills
+- [x] 02-02-PLAN.md - Statistics Store & Tab (PAGE-02): statistics.ts store, StatisticsTab component with summary cards and time dimension pills
 - [ ] 02-03-PLAN.md - Trend Chart & Tabbed History (STAT-07, PAGE-01, PAGE-04): StatisticsChart with moving average, HistoryView transformation to tabbed interface
 
 ---
