@@ -33,10 +33,10 @@ Requirements for Heart Rate Receiver v2.0 enhancement. Each maps to roadmap phas
 
 ### Data Export
 
-- [ ] **EXP-01**: Export heart rate data to CSV format with timestamp, BPM, session ID columns
-- [ ] **EXP-02**: Export heart rate data to JSON format
-- [ ] **EXP-03**: Date range selection for exports (all time, specific period)
-- [ ] **EXP-04**: Native file save dialog via Tauri
+- [x] **EXP-01**: Export heart rate data to CSV format with timestamp, BPM, session ID columns
+- [x] **EXP-02**: Export heart rate data to JSON format
+- [x] **EXP-03**: Date range selection for exports (all time, specific period)
+- [x] **EXP-04**: Native file save dialog via Tauri
 
 ### Statistics Page
 
@@ -96,10 +96,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EX-01 | Phase 3 | Pending |
 | EX-02 | Phase 3 | Pending |
 | EX-03 | Phase 3 | Pending |
-| EXP-01 | Phase 1 | Pending |
-| EXP-02 | Phase 1 | Pending |
-| EXP-03 | Phase 1 | Pending |
-| EXP-04 | Phase 1 | Pending |
+| EXP-01 | Phase 1 | Complete |
+| EXP-02 | Phase 1 | Complete |
+| EXP-03 | Phase 1 | Complete |
+| EXP-04 | Phase 1 | Complete |
 | PAGE-01 | Phase 2 | Pending |
 | PAGE-02 | Phase 2 | Pending |
 | PAGE-03 | Phase 3 | Pending |
