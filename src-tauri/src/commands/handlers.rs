@@ -1,5 +1,5 @@
 use crate::ble::{ConnectionState, DeviceInfo, HeartRateMeasurement, BleManager};
-use crate::storage::{AlertSettings, Database, HeartRateRecord};
+use crate::storage::{AlertSettings, Database, HeartRateRecord, PeriodStats};
 use tauri::{AppHandle, Manager, State};
 
 /// Start scanning for BLE devices
@@ -78,6 +78,18 @@ pub async fn get_heart_rate_history_range(
 ) -> Result<Vec<HeartRateRecord>, String> {
     db.get_history_range(start_time, end_time)
         .map_err(|e| format!("Failed to get history range: {}", e))
+}
+
+/// Get aggregated heart rate statistics by time dimension
+#[tauri::command]
+pub async fn get_heart_rate_statistics(
+    db: State<'_, Database>,
+    dimension: String,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<Vec<PeriodStats>, String> {
+    db.get_statistics(&dimension, start_time, end_time)
+        .map_err(|e| format!("Failed to get statistics: {}", e))
 }
 
 /// Save heart rate measurement
