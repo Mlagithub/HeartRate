@@ -2,10 +2,13 @@
   import { onMount } from 'svelte';
   import { history } from '$lib/stores/history';
   import { format } from 'date-fns';
+  import ExportModal from './ExportModal.svelte';
 
   onMount(() => {
     history.loadHistory(50);
   });
+
+  let showExportModal = false;
 
   function formatTimestamp(ts: number): string {
     return format(new Date(ts), 'MMM d, yyyy HH:mm:ss');
@@ -27,15 +30,26 @@
       </svg>
       <h3>History</h3>
     </div>
-    <button
-      class="btn-refresh"
-      on:click={() => history.loadHistory(50)}
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-        <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-      </svg>
-      Refresh
-    </button>
+    <div class="header-buttons">
+      <button
+        class="btn-refresh"
+        on:click={() => history.loadHistory(50)}
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+          <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+        Refresh
+      </button>
+      <button
+        class="btn-export"
+        on:click={() => showExportModal = true}
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+        </svg>
+        Export
+      </button>
+    </div>
   </div>
 
   {#if $history.isLoading}
@@ -77,6 +91,10 @@
     </div>
   {/if}
 </div>
+
+{#if showExportModal}
+  <ExportModal onClose={() => showExportModal = false} />
+{/if}
 
 <style>
   .history-view {
@@ -122,6 +140,29 @@
   }
 
   .btn-refresh:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .header-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-export {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-export:hover {
     border-color: var(--primary-color);
     color: var(--primary-color);
   }
