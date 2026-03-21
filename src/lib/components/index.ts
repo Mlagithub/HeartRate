@@ -8,3 +8,4 @@ export { default as HistoryView } from './HistoryView.svelte';
 export { default as ExportModal } from './ExportModal.svelte';
 export { default as StatisticsTab } from './StatisticsTab.svelte';
 export { default as StatisticsChart } from './StatisticsChart.svelte';
+export { default as ExerciseTab } from './ExerciseTab.svelte';

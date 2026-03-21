@@ -5,9 +5,10 @@
   import { format, formatDuration, intervalToDuration } from 'date-fns';
   import ExportModal from './ExportModal.svelte';
   import StatisticsTab from './StatisticsTab.svelte';
+  import ExerciseTab from './ExerciseTab.svelte';
 
-  // Tab state (D-01, D-04)
-  let activeTab: 'history' | 'statistics' = 'history';
+  // Tab state (D-01, D-04, D-13)
+  let activeTab: 'history' | 'statistics' | 'exercise' = 'history';
 
   // History tab state
   onMount(() => {
@@ -94,6 +95,16 @@
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
       </svg>
       Statistics
+    </button>
+    <button
+      class="tab-button"
+      class:active={activeTab === 'exercise'}
+      on:click={() => activeTab = 'exercise'}
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+        <path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/>
+      </svg>
+      Exercise
     </button>
   </div>
 
@@ -217,6 +228,9 @@
         </div>
       {/if}
     </div>
+  {:else if activeTab === 'exercise'}
+    <!-- Exercise Tab Content -->
+    <ExerciseTab />
   {:else}
     <!-- Statistics Tab Content -->
     <StatisticsTab />
