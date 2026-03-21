@@ -52,6 +52,16 @@ fn main() {
             commands::set_alert_settings,
             commands::get_alert_settings,
             commands::init_database,
+            commands::get_hrv_estimate,
+            commands::tag_exercise_session,
+            commands::get_sessions_list,
+            commands::detect_exercise_session,
+            commands::get_resting_baseline,
+            commands::detect_exercise_all,
+            commands::remove_exercise_tag,
+            commands::get_exercise_tags,
+            commands::get_exercise_statistics,
+            commands::get_exercise_type_statistics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

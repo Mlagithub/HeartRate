@@ -1,5 +1,8 @@
 use crate::ble::{ConnectionState, DeviceInfo, HeartRateMeasurement, BleManager};
-use crate::storage::{AlertSettings, Database, HeartRateRecord, PeriodStats};
+use crate::storage::{
+    AlertSettings, BaselineStats, Database, DetectionResult, ExerciseStats, ExerciseTag,
+    ExerciseTypeStats, HeartRateRecord, HRVResult, PeriodStats, SessionInfo,
+};
 use tauri::{AppHandle, Manager, State};
 
 /// Start scanning for BLE devices
@@ -137,4 +140,110 @@ pub async fn init_database(app_handle: AppHandle) -> Result<(), String> {
         return Err("Database not initialized. Application may have failed to start properly.".to_string());
     }
     Ok(())
+}
+
+/// Get HRV estimation from BPM variance (per D-09, D-10, D-11)
+#[tauri::command]
+pub async fn get_hrv_estimate(
+    db: State<'_, Database>,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<Option<HRVResult>, String> {
+    db.calculate_hrv(start_time, end_time)
+        .map_err(|e| format!("Failed to calculate HRV: {}", e))
+}
+
+/// Tag a session as exercise (per D-01, D-03, D-04)
+#[tauri::command]
+pub async fn tag_exercise_session(
+    db: State<'_, Database>,
+    session_id: String,
+    exercise_type: String,
+    is_confirmed: bool,
+) -> Result<(), String> {
+    let tag = ExerciseTag {
+        session_id,
+        exercise_type,
+        is_confirmed,
+        confidence: None, // Manual tags have no confidence score
+        tagged_at: chrono::Utc::now().timestamp_millis(),
+    };
+
+    db.tag_exercise(&tag)
+        .map_err(|e| format!("Failed to tag exercise: {}", e))
+}
+
+/// Get list of sessions with exercise info
+#[tauri::command]
+pub async fn get_sessions_list(
+    db: State<'_, Database>,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<SessionInfo>, String> {
+    db.get_sessions(limit, offset)
+        .map_err(|e| format!("Failed to get sessions: {}", e))
+}
+
+/// Detect if a session is exercise (per D-05, D-08)
+#[tauri::command]
+pub async fn detect_exercise_session(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<DetectionResult, String> {
+    db.detect_exercise(&session_id)
+        .map_err(|e| format!("Failed to detect exercise: {}", e))
+}
+
+/// Get personal resting baseline (per D-06, D-15)
+#[tauri::command]
+pub async fn get_resting_baseline(
+    db: State<'_, Database>,
+) -> Result<Option<BaselineStats>, String> {
+    db.calculate_resting_baseline()
+        .map_err(|e| format!("Failed to get resting baseline: {}", e))
+}
+
+/// Detect exercise for all untagged sessions
+#[tauri::command]
+pub async fn detect_exercise_all(
+    db: State<'_, Database>,
+) -> Result<Vec<DetectionResult>, String> {
+    db.detect_exercise_for_sessions()
+        .map_err(|e| format!("Failed to detect exercise for sessions: {}", e))
+}
+
+/// Remove exercise tag from a session
+#[tauri::command]
+pub async fn remove_exercise_tag(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<(), String> {
+    db.remove_exercise_tag(&session_id)
+        .map_err(|e| format!("Failed to remove exercise tag: {}", e))
+}
+
+/// Get all sessions with exercise tags
+#[tauri::command]
+pub async fn get_exercise_tags(
+    db: State<'_, Database>,
+    confirmed_only: bool,
+) -> Result<Vec<ExerciseTag>, String> {
+    db.get_sessions_with_exercise(confirmed_only)
+        .map_err(|e| format!("Failed to get exercise tags: {}", e))
+}
+
+/// Get exercise vs resting comparison statistics (per D-14, D-15)
+#[tauri::command]
+pub async fn get_exercise_statistics(db: State<'_, Database>) -> Result<ExerciseStats, String> {
+    db.get_exercise_statistics()
+        .map_err(|e| format!("Failed to get exercise statistics: {}", e))
+}
+
+/// Get statistics grouped by exercise type (per STAT-08)
+#[tauri::command]
+pub async fn get_exercise_type_statistics(
+    db: State<'_, Database>,
+) -> Result<Vec<ExerciseTypeStats>, String> {
+    db.get_exercise_type_statistics()
+        .map_err(|e| format!("Failed to get exercise type statistics: {}", e))
 }
