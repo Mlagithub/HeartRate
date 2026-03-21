@@ -150,22 +150,23 @@
 
     // Transform data for Chart.js time scale
     const avgData = $statistics.stats.map(s => ({
-      x: parsePeriodDate(s.period, dimension),
+      x: parsePeriodDate(s.period, dimension).getTime(), // Use timestamp for time scale
       y: s.avg_bpm,
     }));
 
     // Calculate moving average (only for daily dimension with enough data)
     const movingAvgData = dimension === 'daily' && avgData.length >= 7
-      ? calculateMovingAverage(avgData)
+      ? calculateMovingAverage(avgData.map(d => ({ x: new Date(d.x), y: d.y }))).map(d => ({ x: d.x.getTime(), y: d.y }))
       : [];
 
     // Update chart data
-    chart.data.datasets[0].data = avgData;
-    chart.data.datasets[1].data = movingAvgData;
+    chart.data.datasets[0].data = avgData as unknown as number[];
+    chart.data.datasets[1].data = movingAvgData as unknown as number[];
 
-    // Update time scale based on dimension
-    chart.options.scales!.x!.time!.unit = timeUnit;
-    chart.options.scales!.x!.time!.displayFormats = {
+    // Update time scale based on dimension - use type assertion for time scale
+    const xScale = chart.options.scales!.x as { time: { unit: string; displayFormats: Record<string, string> } };
+    xScale.time.unit = timeUnit;
+    xScale.time.displayFormats = {
       [timeUnit]: displayFormat
     };
 
