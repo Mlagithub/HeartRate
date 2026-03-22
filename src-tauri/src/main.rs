@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use health_tracker::{commands, storage::Database, BleManager};
+use heart_rate::{commands, storage::Database, BleManager};
 use tauri::Manager;
 
 fn main() {
@@ -8,7 +8,7 @@ fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
         .init();
 
-    log::info!("Starting Health Tracker application...");
+    log::info!("Starting HeartRate application...");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -28,7 +28,7 @@ fn main() {
             std::fs::create_dir_all(&app_data_dir)
                 .expect("Failed to create app data directory");
 
-            let db_path = app_data_dir.join("health_tracker.db");
+            let db_path = app_data_dir.join("heart_rate.db");
             let db = Database::new(&db_path)
                 .expect("Failed to initialize database");
 

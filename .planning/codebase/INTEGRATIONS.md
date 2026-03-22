@@ -16,7 +16,7 @@
 
 **Databases:**
 - SQLite (via rusqlite 0.32 with bundled feature)
-  - Connection: Local file at `{app_data_dir}/health_tracker.db`
+  - Connection: Local file at `{app_data_dir}/heart_rate.db`
   - Location: Configured in `/mnt/d/work/heratbeat/src-tauri/src/main.rs`
   - Tables: `heart_rate_records`, `alert_settings`
   - Indexes: `idx_timestamp`, `idx_session_id`
