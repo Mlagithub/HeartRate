@@ -1,5 +1,5 @@
 [package]
-name = "health-tracker"
+name = "heart-rate"
 version = "0.1.0"
 description = "Heart Rate Monitor Desktop Application"
 authors = ["you"]
