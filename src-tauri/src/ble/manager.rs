@@ -2,13 +2,11 @@ use crate::alert::notifier::{check_alert, reset_alert_cooldowns};
 use crate::ble::{DeviceInfo, ConnectionState, HEART_RATE_SERVICE_UUID, HEART_RATE_MEASUREMENT_UUID};
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
 use btleplug::platform::{Adapter, Manager, Peripheral};
-use futures::stream::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 /// BLE Manager state
 pub struct BleManagerInner {
@@ -405,6 +403,15 @@ impl BleManager {
 
         log::info!("Subscribed to heart rate notifications");
 
+        // Get notification stream BEFORE spawning the task
+        let notification_stream = peripheral.notifications().await
+            .map_err(|e| {
+                log::error!("Failed to get notification stream: {}", e);
+                format!("Failed to get notification stream: {}", e)
+            })?;
+
+        log::info!("Notification stream created successfully");
+
         // Update state
         {
             let mut inner = self.inner.write().await;
@@ -426,24 +433,41 @@ impl BleManager {
         // Spawn notification handler
         tokio::spawn(async move {
             log::info!("Listening for heart rate notifications...");
-            match peripheral.notifications().await {
-                Ok(mut notification_stream) => {
-                    while let Some(notification) = notification_stream.next().await {
-                        if notification.uuid == HEART_RATE_MEASUREMENT_UUID {
-                            if let Some(measurement) = crate::ble::heart_rate::parse_heart_rate_measurement(&notification.value) {
-                                log::info!("Received heart rate: {} BPM", measurement.bpm);
-                                let _ = app_handle_clone.emit("heart-rate-measurement", &measurement);
-                                let _ = check_alert(measurement.bpm, &app_handle_clone).await;
+            use futures::stream::StreamExt;
+
+            let mut notification_stream = notification_stream;
+            let mut heartbeat_counter = 0u32;
+
+            loop {
+                // Use tokio::select with a timeout to detect if stream is stalled
+                tokio::select! {
+                    notification_opt = notification_stream.next() => {
+                        match notification_opt {
+                            Some(notification) => {
+                                if notification.uuid == HEART_RATE_MEASUREMENT_UUID {
+                                    if let Some(measurement) = crate::ble::heart_rate::parse_heart_rate_measurement(&notification.value) {
+                                        log::debug!("Received heart rate: {} BPM", measurement.bpm);
+                                        if let Err(e) = app_handle_clone.emit("heart-rate-measurement", &measurement) {
+                                            log::error!("Failed to emit heart-rate-measurement event: {}", e);
+                                        }
+                                        let _ = check_alert(measurement.bpm, &app_handle_clone).await;
+                                    }
+                                }
+                            }
+                            None => {
+                                log::warn!("Notification stream ended (None received)");
+                                break;
                             }
                         }
                     }
-                }
-                Err(e) => {
-                    log::error!("Failed to get notification stream: {}", e);
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                        heartbeat_counter += 1;
+                        log::debug!("Heartbeat {}: waiting for notifications...", heartbeat_counter);
+                    }
                 }
             }
 
-            log::info!("Notification stream ended, device disconnected");
+            log::warn!("Notification stream ended normally");
             let mut inner = inner_clone.write().await;
             inner.connection_state = ConnectionState::Disconnected;
             inner.connected_peripheral = None;

@@ -1,26 +1,45 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { history } from '$lib/stores/history';
-  import { exercise, ACTIVITY_TYPES, type ActivityType, type DetectionResult } from '$lib/stores/exercise';
+  import { exercise, type DetectionResult } from '$lib/stores/exercise';
+  import { exerciseTypes } from '$lib/stores/exerciseTypes';
   import { format, formatDuration, intervalToDuration } from 'date-fns';
   import ExportModal from './ExportModal.svelte';
   import StatisticsTab from './StatisticsTab.svelte';
   import ExerciseTab from './ExerciseTab.svelte';
+  import SessionChart from './SessionChart.svelte';
 
   // Tab state (D-01, D-04, D-13)
   let activeTab: 'history' | 'statistics' | 'exercise' = 'history';
 
-  // History tab state
+  // Track if data has been loaded
+  let dataLoaded = false;
+
+  // Session chart modal
+  let showSessionChart = false;
+  let selectedSessionId = '';
+
+  // History tab state - only load once
   onMount(() => {
-    history.loadHistory(50);
-    exercise.loadSessions(50);
+    if (!dataLoaded) {
+      console.log('[HistoryView] Loading data for the first time...');
+      dataLoaded = true;
+      // Load with a small delay to avoid blocking
+      setTimeout(() => {
+        history.loadHistory(50);
+        exercise.loadSessions(50);
+        exerciseTypes.loadTypes();
+      }, 100);
+    }
   });
 
   let showExportModal = false;
 
   // Exercise tagging state
   let expandedSession: string | null = null;
-  let selectedActivity: ActivityType = 'Running';
+  let selectedActivity: string = 'Running';
+  let editingTag: string | null = null;
+  let editActivity: string = '';
 
   function formatTimestamp(ts: number): string {
     return format(new Date(ts), 'MMM d, yyyy HH:mm:ss');
@@ -56,7 +75,7 @@
 
   async function confirmDetection(sessionId: string, detection: DetectionResult) {
     // Map detection reason to activity type heuristically
-    const detectedType: ActivityType = detection.reason.toLowerCase().includes('running')
+    const detectedType: string = detection.reason.toLowerCase().includes('running')
       ? 'Running'
       : detection.reason.toLowerCase().includes('cycling')
         ? 'Cycling'
@@ -70,6 +89,35 @@
 
   async function dismissDetection(sessionId: string) {
     await exercise.tagExercise(sessionId, 'Other', false);
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    if (confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      await exercise.deleteSession(sessionId);
+      expandedSession = null;
+    }
+  }
+
+  function startEditTag(sessionId: string, currentType: string) {
+    editingTag = sessionId;
+    editActivity = currentType;
+  }
+
+  function cancelEditTag() {
+    editingTag = null;
+    editActivity = '';
+  }
+
+  async function saveEditTag(sessionId: string) {
+    await exercise.tagExercise(sessionId, editActivity, true);
+    editingTag = null;
+    editActivity = '';
+  }
+
+  async function removeTag(sessionId: string) {
+    if (confirm('Remove exercise tag from this session?')) {
+      await exercise.removeTag(sessionId);
+    }
   }
 </script>
 
@@ -201,7 +249,7 @@
                     <div class="tagging-section">
                       <span class="tag-label">Tag as exercise:</span>
                       <div class="activity-pills">
-                        {#each ACTIVITY_TYPES as type}
+                        {#each $exerciseTypes as type}
                           <button
                             class="pill"
                             class:active={selectedActivity === type}
@@ -211,15 +259,80 @@
                           </button>
                         {/each}
                       </div>
-                      <button class="btn-tag" on:click={() => handleTagExercise(session.session_id)}>
-                        Tag as Exercise
-                      </button>
+                      <div class="action-buttons">
+                        <button class="btn-view" on:click={() => { selectedSessionId = session.session_id; showSessionChart = true; }}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M3 13h2v8H3v-8zm4-6h2v14H7V7zm4-4h2v18h-2V3zm4 8h2v10h-2V11zm4-3h2v13h-2V8z"/>
+                          </svg>
+                          View Chart
+                        </button>
+                        <button class="btn-tag" on:click={() => handleTagExercise(session.session_id)}>
+                          Tag as Exercise
+                        </button>
+                        <button class="btn-delete" on:click={() => handleDeleteSession(session.session_id)}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   {:else}
-                    <div class="tagged-info">
-                      <span class="tagged-label">Tagged as:</span>
-                      <span class="tagged-type">{session.exercise_tag.exercise_type}</span>
-                    </div>
+                    {#if editingTag === session.session_id}
+                      <div class="edit-tag-section">
+                        <span class="tag-label">Change exercise type:</span>
+                        <div class="activity-pills">
+                          {#each $exerciseTypes as type}
+                            <button
+                              class="pill"
+                              class:active={editActivity === type}
+                              on:click={() => editActivity = type}
+                            >
+                              {type}
+                            </button>
+                          {/each}
+                        </div>
+                        <div class="action-buttons">
+                          <button class="btn-save" on:click={() => saveEditTag(session.session_id)}>
+                            Save Changes
+                          </button>
+                          <button class="btn-cancel" on:click={cancelEditTag}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    {:else if session.exercise_tag}
+                      <div class="tagged-info">
+                        <span class="tagged-label">Tagged as:</span>
+                        <span class="tagged-type">{session.exercise_tag.exercise_type}</span>
+                      </div>
+                      <div class="action-buttons">
+                        <button class="btn-view" on:click={() => { selectedSessionId = session.session_id; showSessionChart = true; }}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M3 13h2v8H3v-8zm4-6h2v14H7V7zm4-4h2v18h-2V3zm4 8h2v10h-2V11zm4-3h2v13h-2V8z"/>
+                          </svg>
+                          View Chart
+                        </button>
+                        <button class="btn-edit-tag" on:click={() => startEditTag(session.session_id, session.exercise_tag!.exercise_type)}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                          </svg>
+                          Edit Tag
+                        </button>
+                        <button class="btn-remove-tag" on:click={() => removeTag(session.session_id)}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                          </svg>
+                          Remove Tag
+                        </button>
+                        <button class="btn-delete" on:click={() => handleDeleteSession(session.session_id)}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    {/if}
                   {/if}
                 </div>
               {/if}
@@ -239,6 +352,10 @@
 
 {#if showExportModal}
   <ExportModal onClose={() => showExportModal = false} />
+{/if}
+
+{#if showSessionChart}
+  <SessionChart sessionId={selectedSessionId} onClose={() => showSessionChart = false} />
 {/if}
 
 <style>
@@ -619,10 +736,52 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    align-self: flex-start;
   }
 
   .btn-tag:hover {
+    opacity: 0.9;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .btn-delete {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-delete:hover {
+    background: var(--danger-color);
+    color: white;
+  }
+
+  .btn-view {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-view:hover {
     opacity: 0.9;
   }
 
@@ -641,5 +800,80 @@
     font-size: 13px;
     font-weight: 500;
     color: var(--primary-color);
+  }
+
+  .edit-tag-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-edit-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-edit-tag:hover {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-remove-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-remove-tag:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+  }
+
+  .btn-save {
+    font-size: 13px;
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-save:hover {
+    opacity: 0.9;
+  }
+
+  .btn-cancel {
+    font-size: 13px;
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
   }
 </style>

@@ -83,6 +83,16 @@ pub async fn get_heart_rate_history_range(
         .map_err(|e| format!("Failed to get history range: {}", e))
 }
 
+/// Get heart rate records for a specific session
+#[tauri::command]
+pub async fn get_session_records(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<Vec<HeartRateRecord>, String> {
+    db.get_session_records(&session_id)
+        .map_err(|e| format!("Failed to get session records: {}", e))
+}
+
 /// Get aggregated heart rate statistics by time dimension
 #[tauri::command]
 pub async fn get_heart_rate_statistics(
@@ -184,6 +194,16 @@ pub async fn get_sessions_list(
         .map_err(|e| format!("Failed to get sessions: {}", e))
 }
 
+/// Delete a session and all its data
+#[tauri::command]
+pub async fn delete_session(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<(), String> {
+    db.delete_session(&session_id)
+        .map_err(|e| format!("Failed to delete session: {}", e))
+}
+
 /// Detect if a session is exercise (per D-05, D-08)
 #[tauri::command]
 pub async fn detect_exercise_session(
@@ -246,4 +266,44 @@ pub async fn get_exercise_type_statistics(
 ) -> Result<Vec<ExerciseTypeStats>, String> {
     db.get_exercise_type_statistics()
         .map_err(|e| format!("Failed to get exercise type statistics: {}", e))
+}
+
+// ==================== Exercise Types Management ====================
+
+/// Get all exercise types
+#[tauri::command]
+pub async fn get_exercise_types(db: State<'_, Database>) -> Result<Vec<String>, String> {
+    db.get_exercise_types()
+        .map_err(|e| format!("Failed to get exercise types: {}", e))
+}
+
+/// Add a new exercise type
+#[tauri::command]
+pub async fn add_exercise_type(
+    db: State<'_, Database>,
+    name: String,
+) -> Result<(), String> {
+    db.add_exercise_type(&name)
+        .map_err(|e| format!("Failed to add exercise type: {}", e))
+}
+
+/// Update an exercise type
+#[tauri::command]
+pub async fn update_exercise_type(
+    db: State<'_, Database>,
+    old_name: String,
+    new_name: String,
+) -> Result<(), String> {
+    db.update_exercise_type(&old_name, &new_name)
+        .map_err(|e| format!("Failed to update exercise type: {}", e))
+}
+
+/// Delete an exercise type
+#[tauri::command]
+pub async fn delete_exercise_type(
+    db: State<'_, Database>,
+    name: String,
+) -> Result<(), String> {
+    db.delete_exercise_type(&name)
+        .map_err(|e| format!("Failed to delete exercise type: {}", e))
 }

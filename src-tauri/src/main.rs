@@ -5,7 +5,7 @@ use tauri::Manager;
 
 fn main() {
     // Initialize logger
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
         .init();
 
     log::info!("Starting Health Tracker application...");
@@ -34,6 +34,20 @@ fn main() {
 
             app_handle.manage(db);
 
+            // Monitor window events for debugging
+            let window = app_handle.get_webview_window("main").expect("Failed to get main window");
+            window.on_window_event(move |event| {
+                match event {
+                    tauri::WindowEvent::Focused(focused) => {
+                        log::debug!("Window focused: {}", focused);
+                    }
+                    tauri::WindowEvent::Destroyed => {
+                        log::info!("Window destroyed");
+                    }
+                    _ => {}
+                }
+            });
+
             log::info!("Application initialized successfully");
             Ok(())
         })
@@ -47,6 +61,7 @@ fn main() {
             commands::get_connected_device,
             commands::get_heart_rate_history,
             commands::get_heart_rate_history_range,
+            commands::get_session_records,
             commands::get_heart_rate_statistics,
             commands::save_heart_rate,
             commands::set_alert_settings,
@@ -55,6 +70,7 @@ fn main() {
             commands::get_hrv_estimate,
             commands::tag_exercise_session,
             commands::get_sessions_list,
+            commands::delete_session,
             commands::detect_exercise_session,
             commands::get_resting_baseline,
             commands::detect_exercise_all,
@@ -62,6 +78,10 @@ fn main() {
             commands::get_exercise_tags,
             commands::get_exercise_statistics,
             commands::get_exercise_type_statistics,
+            commands::get_exercise_types,
+            commands::add_exercise_type,
+            commands::update_exercise_type,
+            commands::delete_exercise_type,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

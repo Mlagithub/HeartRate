@@ -12,7 +12,7 @@
   const MAX_POINTS = 120; // 2 minutes of data
 
   // Time window selection
-  let selectedWindow: string = '5m'; // Default per D-09
+  let selectedWindow: string = 'All'; // Default to show all data
 
   const TIME_WINDOWS: Record<string, number> = {
     '2m': 2 * 60 * 1000,
@@ -180,13 +180,15 @@
     return $heartRate.history.filter(h => h.timestamp >= cutoff);
   }
 
-  function updateChart() {
+  function updateChart(force: boolean = false) {
     if (!chart) return;
 
-    // Throttle updates to avoid excessive redraws
-    const now = Date.now();
-    if (now - lastUpdate < UPDATE_THROTTLE_MS) return;
-    lastUpdate = now;
+    // Throttle updates to avoid excessive redraws (unless forced)
+    if (!force) {
+      const now = Date.now();
+      if (now - lastUpdate < UPDATE_THROTTLE_MS) return;
+      lastUpdate = now;
+    }
 
     const history = getFilteredHistory();
     const labels = history.map((h) =>
@@ -220,8 +222,21 @@
 
   onMount(() => {
     initChart();
-    unsubscribe = heartRate.subscribe(updateChart);
+    unsubscribe = heartRate.subscribe(() => updateChart());
   });
+
+  function handleWindowChange(window: string) {
+    selectedWindow = window;
+    // Force immediate chart update when window changes
+    lastUpdate = 0; // Reset throttle
+    updateChart(true);
+  }
+
+  function handleZoneToggle() {
+    showZones = !showZones;
+    // Force immediate chart redraw when zones toggle
+    updateChart(true);
+  }
 
   onDestroy(() => {
     if (unsubscribe) unsubscribe();
@@ -241,14 +256,14 @@
           <button
             class="pill"
             class:active={selectedWindow === window}
-            on:click={() => selectedWindow = window}
+            on:click={() => handleWindowChange(window)}
           >
             {window}
           </button>
         {/each}
       </div>
       <label class="toggle-label">
-        <input type="checkbox" bind:checked={showZones} />
+        <input type="checkbox" checked={showZones} on:change={handleZoneToggle} />
         <span class="toggle-text">Show Zones</span>
       </label>
     </div>

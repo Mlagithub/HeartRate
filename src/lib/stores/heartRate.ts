@@ -20,7 +20,6 @@ export interface HeartRateStats {
 export interface HeartRateState {
   current: HeartRateMeasurement | null;
   history: HeartRateMeasurement[];
-  maxHistoryLength: number;
   stats: HeartRateStats;
 }
 
@@ -29,7 +28,6 @@ function createHeartRateStore() {
   const initialState: HeartRateState = {
     current: null,
     history: [],
-    maxHistoryLength: 100,
     stats: initialStats,
   };
 
@@ -83,12 +81,14 @@ function createHeartRateStore() {
   // Initialize listener - call this in onMount
   async function initListener() {
     if (typeof window !== 'undefined' && !unlisten) {
+      console.log('[heartRate] Initializing event listener...');
       unlisten = await listen<HeartRateMeasurement>('heart-rate-measurement', (event) => {
+        console.log('[heartRate] Received event:', event.payload.bpm);
         const measurement = event.payload;
         const newStats = updateSessionStats(measurement.bpm);
         update((state) => {
-          // History keeps only recent points for chart display
-          const history = [...state.history, measurement].slice(-state.maxHistoryLength);
+          // Keep all history - filtering is done in the chart component
+          const history = [...state.history, measurement];
           return {
             ...state,
             current: measurement,
@@ -99,6 +99,9 @@ function createHeartRateStore() {
         // Save to database
         saveMeasurement(measurement);
       });
+      console.log('[heartRate] Event listener registered');
+    } else if (unlisten) {
+      console.log('[heartRate] Listener already registered, skipping');
     }
   }
 
@@ -117,7 +120,8 @@ function createHeartRateStore() {
     addMeasurement: (measurement: HeartRateMeasurement) => {
       const newStats = updateSessionStats(measurement.bpm);
       update((state) => {
-        const history = [...state.history, measurement].slice(-state.maxHistoryLength);
+        // Keep all history
+        const history = [...state.history, measurement];
         return {
           ...state,
           current: measurement,

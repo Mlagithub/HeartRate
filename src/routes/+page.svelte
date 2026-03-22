@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
 
   import HeartRateDisplay from '$lib/components/HeartRateDisplay.svelte';
   import HeartRateChart from '$lib/components/HeartRateChart.svelte';
@@ -12,8 +11,6 @@
 
   import { heartRate } from '$lib/stores/heartRate';
   import { device } from '$lib/stores/device';
-  import { settings } from '$lib/stores/settings';
-  import { history } from '$lib/stores/history';
 
   let activeTab = 'monitor';
   let theme = 'dark';
@@ -50,22 +47,6 @@
   onMount(() => {
     // Load saved theme
     loadTheme();
-
-    // Initialize Tauri event listeners and load settings
-    Promise.all([
-      heartRate.initListener(),
-      device.initListeners(),
-      settings.loadSettings(),
-    ]).then(() => {
-      // Sync connection state from backend
-      device.syncConnectionState();
-    });
-
-    // Return cleanup function
-    return () => {
-      heartRate.cleanup();
-      device.cleanup();
-    };
   });
 </script>
 

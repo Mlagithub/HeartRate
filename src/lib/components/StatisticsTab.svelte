@@ -78,11 +78,14 @@
   }
 
   onMount(() => {
-    // Load default dimension (weekly per D-06)
-    if ($statistics.stats.length === 0) {
-      statistics.loadStatistics('weekly');
-    }
-    loadHRV();
+    // Load with a small delay to avoid blocking
+    setTimeout(() => {
+      // Load default dimension (weekly per D-06)
+      if ($statistics.stats.length === 0) {
+        statistics.loadStatistics('weekly');
+      }
+      loadHRV();
+    }, 150);
   });
 </script>
 

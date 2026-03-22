@@ -1,10 +1,6 @@
 import { writable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 
-// Activity types per D-02
-export const ACTIVITY_TYPES = ['Running', 'Cycling', 'Swimming', 'Gym', 'Other'] as const;
-export type ActivityType = typeof ACTIVITY_TYPES[number];
-
 export interface ExerciseTag {
   session_id: string;
   exercise_type: string;
@@ -58,7 +54,7 @@ function createExerciseStore() {
 
   async function tagExercise(
     sessionId: string,
-    exerciseType: ActivityType,
+    exerciseType: string,
     isConfirmed: boolean = true
   ) {
     try {
@@ -110,6 +106,31 @@ function createExerciseStore() {
     tagExercise,
     detectExercise,
     runDetectionForAll,
+    removeTag: async (sessionId: string) => {
+      try {
+        await invoke('remove_exercise_tag', { sessionId });
+        await loadSessions();
+      } catch (error) {
+        update((s) => ({ ...s, error: String(error) }));
+      }
+    },
+    deleteSession: async (sessionId: string) => {
+      try {
+        await invoke('delete_session', { sessionId });
+        // Remove from local state
+        update((s) => ({
+          ...s,
+          sessions: s.sessions.filter((sess) => sess.session_id !== sessionId),
+          detections: (() => {
+            const newDetections = new Map(s.detections);
+            newDetections.delete(sessionId);
+            return newDetections;
+          })(),
+        }));
+      } catch (error) {
+        update((s) => ({ ...s, error: String(error) }));
+      }
+    },
     reset: () => set(initialState),
   };
 }

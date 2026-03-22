@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result as SqliteResult, params};
+use rusqlite::{Connection, OptionalExtension, Result as SqliteResult, params};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Mutex;
@@ -201,6 +201,29 @@ impl Database {
             [],
         )?;
 
+        // Create exercise_types table for custom exercise types
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS exercise_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                created_at INTEGER NOT NULL
+            )",
+            [],
+        )?;
+
+        // Insert default exercise types if table is empty
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM exercise_types", [], |row| row.get(0))?;
+        if count == 0 {
+            let now = chrono::Utc::now().timestamp_millis();
+            let defaults = ["Running", "Cycling", "Swimming", "Gym", "Other"];
+            for name in defaults {
+                let _ = conn.execute(
+                    "INSERT INTO exercise_types (name, created_at) VALUES (?1, ?2)",
+                    params![name, now],
+                );
+            }
+        }
+
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -208,10 +231,15 @@ impl Database {
 
     /// Helper to get connection with proper error handling
     fn get_conn(&self) -> SqliteResult<std::sync::MutexGuard<'_, Connection>> {
-        self.conn.lock().map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+        log::debug!("Acquiring database lock...");
+        let result = self.conn.lock().map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Database lock poisoned: {}", e)
-        ))))
+        ))));
+        if result.is_ok() {
+            log::debug!("Database lock acquired");
+        }
+        result
     }
 
     /// Save a heart rate record
@@ -275,6 +303,34 @@ impl Database {
 
         let records = stmt
             .query_map(params![start_time, end_time], |row| {
+                let sensor_contact_val: Option<i64> = row.get(2)?;
+                let sensor_contact = sensor_contact_val.map(|v| v != 0);
+
+                Ok(HeartRateRecord {
+                    id: Some(row.get(0)?),
+                    bpm: row.get::<_, i64>(1)? as u16,
+                    sensor_contact,
+                    timestamp: row.get(3)?,
+                    session_id: row.get(4)?,
+                })
+            })?
+            .collect::<SqliteResult<Vec<_>>>()?;
+
+        Ok(records)
+    }
+
+    /// Get heart rate records for a specific session
+    pub fn get_session_records(&self, session_id: &str) -> SqliteResult<Vec<HeartRateRecord>> {
+        let conn = self.get_conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, bpm, sensor_contact, timestamp, session_id
+             FROM heart_rate_records
+             WHERE session_id = ?1
+             ORDER BY timestamp ASC",
+        )?;
+
+        let records = stmt
+            .query_map(params![session_id], |row| {
                 let sensor_contact_val: Option<i64> = row.get(2)?;
                 let sensor_contact = sensor_contact_val.map(|v| v != 0);
 
@@ -527,40 +583,81 @@ impl Database {
     /// Get unique sessions from heart_rate_records with aggregated info
     pub fn get_sessions(&self, limit: i64, offset: i64) -> SqliteResult<Vec<SessionInfo>> {
         let conn = self.get_conn()?;
+
+        // Use a single query with LEFT JOIN to get sessions and their exercise tags
+        // This avoids the deadlock issue of calling get_exercise_tag in a loop
         let mut stmt = conn.prepare(
             "SELECT
-                session_id,
-                MIN(timestamp) as start_time,
-                MAX(timestamp) as end_time,
-                COUNT(*) as record_count,
-                AVG(bpm) as avg_bpm
-             FROM heart_rate_records
-             GROUP BY session_id
-             ORDER BY start_time DESC
-             LIMIT ?1 OFFSET ?2",
+                s.session_id,
+                s.start_time,
+                s.end_time,
+                s.record_count,
+                s.avg_bpm,
+                e.exercise_type,
+                e.is_confirmed,
+                e.confidence,
+                e.tagged_at
+             FROM (
+                SELECT
+                    session_id,
+                    MIN(timestamp) as start_time,
+                    MAX(timestamp) as end_time,
+                    COUNT(*) as record_count,
+                    AVG(bpm) as avg_bpm
+                FROM heart_rate_records
+                GROUP BY session_id
+                ORDER BY start_time DESC
+                LIMIT ?1 OFFSET ?2
+             ) s
+             LEFT JOIN exercise_tags e ON s.session_id = e.session_id",
         )?;
 
         let sessions = stmt
             .query_map(params![limit, offset], |row| {
+                let exercise_tag: Option<ExerciseTag> = if row.get::<_, Option<String>>(5)?.is_some() {
+                    Some(ExerciseTag {
+                        session_id: row.get(0)?,
+                        exercise_type: row.get(5)?,
+                        is_confirmed: row.get::<_, Option<i64>>(6)?.map(|v| v != 0).unwrap_or(false),
+                        confidence: row.get(7)?,
+                        tagged_at: row.get(8)?,
+                    })
+                } else {
+                    None
+                };
+
                 Ok(SessionInfo {
                     session_id: row.get(0)?,
                     start_time: row.get(1)?,
                     end_time: row.get(2)?,
                     record_count: row.get(3)?,
                     avg_bpm: row.get(4)?,
-                    exercise_tag: None, // Will be populated separately
+                    exercise_tag,
                 })
             })?
             .collect::<SqliteResult<Vec<_>>>()?;
 
-        // Fetch exercise tags for these sessions
-        let mut result = Vec::with_capacity(sessions.len());
-        for mut session in sessions {
-            session.exercise_tag = self.get_exercise_tag(&session.session_id)?;
-            result.push(session);
-        }
+        Ok(sessions)
+    }
 
-        Ok(result)
+    /// Delete a session and all its associated data
+    pub fn delete_session(&self, session_id: &str) -> SqliteResult<()> {
+        let conn = self.get_conn()?;
+
+        // Delete exercise tags first (foreign key relationship)
+        conn.execute(
+            "DELETE FROM exercise_tags WHERE session_id = ?1",
+            params![session_id],
+        )?;
+
+        // Delete all heart rate records for this session
+        conn.execute(
+            "DELETE FROM heart_rate_records WHERE session_id = ?1",
+            params![session_id],
+        )?;
+
+        log::info!("Deleted session: {}", session_id);
+        Ok(())
     }
 
     /// Remove exercise tag for a session
@@ -598,16 +695,13 @@ impl Database {
         let result: Option<(i64, f64)> = conn
             .query_row(sql, [], |row| {
                 let days: i64 = row.get(0)?;
-                if days < 7 {
-                    Ok(None)
-                } else {
-                    Ok(Some((days, row.get(1)?)))
-                }
+                let resting: f64 = row.get(1)?;
+                Ok((days, resting))
             })
             .optional()?;
 
         let (data_days, resting_avg) = match result {
-            Some(Some(data)) => data,
+            Some((days, resting)) if days >= 7 => (days, resting),
             _ => return Ok(None),
         };
 
@@ -639,11 +733,46 @@ impl Database {
     /// Detect if a session is exercise (per D-05)
     /// Threshold: sustained HR > resting_avg + 30 BPM for 5+ minutes
     pub fn detect_exercise(&self, session_id: &str) -> SqliteResult<DetectionResult> {
-        // First check if we have a baseline
-        let baseline = self.calculate_resting_baseline()?;
+        // Get everything in a single connection to avoid nested locking
+        let conn = self.get_conn()?;
+
+        // Get baseline in the same connection
+        let baseline_sql = "
+            WITH daily_mins AS (
+                SELECT
+                    date(timestamp / 1000, 'unixepoch', 'localtime') as day,
+                    MIN(bpm) as daily_min
+                FROM heart_rate_records
+                WHERE timestamp >= (strftime('%s', 'now', '-30 days') * 1000)
+                GROUP BY day
+            )
+            SELECT
+                COUNT(DISTINCT day) as data_days,
+                AVG(daily_min) as resting_avg
+            FROM daily_mins
+        ";
+
+        let baseline: Option<(i64, f64)> = conn
+            .query_row(baseline_sql, [], |row| {
+                let days: i64 = row.get(0)?;
+                let resting: f64 = row.get(1)?;
+                Ok((days, resting))
+            })
+            .optional()?;
+
+        let baseline = match baseline {
+            Some((days, resting)) if days >= 7 => resting,
+            _ => {
+                return Ok(DetectionResult {
+                    session_id: session_id.to_string(),
+                    is_exercise: false,
+                    confidence: 0.0,
+                    reason: "Insufficient baseline data (need 7+ days)".to_string(),
+                });
+            }
+        };
 
         // Get session statistics
-        let conn = self.get_conn()?;
         let session_sql = "
             SELECT
                 COUNT(*) as record_count,
@@ -657,23 +786,18 @@ impl Database {
 
         let session_info: Option<(i64, f64, i64, i64, i64)> = conn
             .query_row(session_sql, params![session_id], |row| {
-                let count: i64 = row.get(0)?;
-                if count == 0 {
-                    Ok(None)
-                } else {
-                    Ok(Some((
-                        count,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                        row.get(4)?,
-                    )))
-                }
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
             })
             .optional()?;
 
-        let (record_count, avg_bpm, max_bpm, start_time, end_time) = match session_info {
-            Some(Some(data)) => data,
+        let (_record_count, avg_bpm, _max_bpm, start_time, end_time) = match session_info {
+            Some((count, avg, max, start, end)) if count > 0 => (count, avg, max, start, end),
             _ => {
                 return Ok(DetectionResult {
                     session_id: session_id.to_string(),
@@ -695,21 +819,8 @@ impl Database {
             });
         }
 
-        // If no baseline, can't detect
-        let baseline = match baseline {
-            Some(b) => b,
-            None => {
-                return Ok(DetectionResult {
-                    session_id: session_id.to_string(),
-                    is_exercise: false,
-                    confidence: 0.0,
-                    reason: "Insufficient baseline data (need 7+ days)".to_string(),
-                });
-            }
-        };
-
         // Detection threshold: avg HR > resting_avg + 30 BPM
-        let threshold = baseline.resting_avg + 30.0;
+        let threshold = baseline + 30.0;
         let is_exercise = avg_bpm > threshold;
 
         // Confidence calculation (per D-08)
@@ -719,7 +830,7 @@ impl Database {
         let confidence = if is_exercise {
             // Scale confidence from 0.5 to 1.0 based on how much above threshold
             // 0 BPM above = 0.5, 40+ BPM above = 1.0
-            (0.5 + hr_above_threshold / 80.0).min(1.0).max(0.5)
+            (0.5 + hr_above_threshold as f64 / 80.0).min(1.0).max(0.5)
         } else {
             0.0
         };
@@ -727,7 +838,7 @@ impl Database {
         let reason = if is_exercise {
             format!(
                 "Elevated HR: avg {:.0} BPM vs resting {:.0} BPM (threshold {:.0})",
-                avg_bpm, baseline.resting_avg, threshold
+                avg_bpm, baseline, threshold
             )
         } else {
             format!(
@@ -746,20 +857,25 @@ impl Database {
 
     /// Detect exercise for all untagged sessions
     pub fn detect_exercise_for_sessions(&self) -> SqliteResult<Vec<DetectionResult>> {
-        let conn = self.get_conn()?;
+        // First, get all session IDs that need detection
+        let session_ids: Vec<String> = {
+            let conn = self.get_conn()?;
 
-        // Get all session IDs that don't have exercise tags
-        let sql = "
-            SELECT DISTINCT session_id
-            FROM heart_rate_records
-            WHERE session_id NOT IN (SELECT session_id FROM exercise_tags)
-        ";
+            let sql = "
+                SELECT DISTINCT session_id
+                FROM heart_rate_records
+                WHERE session_id NOT IN (SELECT session_id FROM exercise_tags)
+            ";
 
-        let mut stmt = conn.prepare(sql)?;
-        let session_ids: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .collect::<SqliteResult<Vec<_>>>()?;
+            let mut stmt = conn.prepare(sql)?;
+            let rows: Vec<String> = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<SqliteResult<Vec<_>>>()?;
+            rows
+        };
+        // Lock is released here when conn goes out of scope
 
+        // Now process each session without holding the lock
         let mut results = Vec::with_capacity(session_ids.len());
         for session_id in session_ids {
             let result = self.detect_exercise(&session_id)?;
@@ -774,6 +890,12 @@ impl Database {
 
     /// Get exercise vs resting comparison statistics (per D-14, D-15)
     pub fn get_exercise_statistics(&self) -> SqliteResult<ExerciseStats> {
+        // Get resting baseline first (without holding lock for the rest)
+        let avg_resting_hr = match self.calculate_resting_baseline()? {
+            Some(baseline) => baseline.resting_avg,
+            None => 70.0, // Default if no baseline data
+        };
+
         let conn = self.get_conn()?;
 
         // Get average HR from confirmed exercise sessions
@@ -822,10 +944,10 @@ impl Database {
         let max_hr = 180.0; // 220 - 40 (default age)
         let hr_zones = if !hr_data.is_empty() {
             let total = hr_data.len() as f64;
-            let zone1_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.5 && hr as f64 < max_hr * 0.6).count();
-            let zone2_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.6 && hr as f64 < max_hr * 0.7).count();
-            let zone3_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.7 && hr as f64 < max_hr * 0.8).count();
-            let zone4_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.8 && hr as f64 < max_hr * 0.9).count();
+            let zone1_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.5 && (hr as f64) < max_hr * 0.6).count();
+            let zone2_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.6 && (hr as f64) < max_hr * 0.7).count();
+            let zone3_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.7 && (hr as f64) < max_hr * 0.8).count();
+            let zone4_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.8 && (hr as f64) < max_hr * 0.9).count();
             let zone5_count = hr_data.iter().filter(|&&hr| hr as f64 >= max_hr * 0.9).count();
 
             HeartRateZones {
@@ -837,12 +959,6 @@ impl Database {
             }
         } else {
             HeartRateZones::default()
-        };
-
-        // Get resting baseline
-        let avg_resting_hr = match self.calculate_resting_baseline()? {
-            Some(baseline) => baseline.resting_avg,
-            None => 70.0, // Default if no baseline data
         };
 
         Ok(ExerciseStats {
@@ -858,21 +974,48 @@ impl Database {
     pub fn get_exercise_type_statistics(&self) -> SqliteResult<Vec<ExerciseTypeStats>> {
         let conn = self.get_conn()?;
 
+        // Calculate total_minutes per session first (avoiding duplicate counts)
+        // then join with HR stats
         let mut stmt = conn.prepare(
-            "SELECT
-                e.exercise_type,
-                COUNT(DISTINCT e.session_id) as session_count,
-                AVG(h.bpm) as avg_hr,
-                MAX(h.bpm) as max_hr,
-                MIN(h.bpm) as min_hr,
-                SUM((SELECT MAX(timestamp) - MIN(timestamp)
-                     FROM heart_rate_records h2
-                     WHERE h2.session_id = e.session_id) / 60000.0) as total_minutes
-             FROM exercise_tags e
-             JOIN heart_rate_records h ON e.session_id = h.session_id
-             WHERE e.is_confirmed = 1
-             GROUP BY e.exercise_type
-             ORDER BY session_count DESC",
+            "WITH session_durations AS (
+                SELECT
+                    e.exercise_type,
+                    e.session_id,
+                    (MAX(h.timestamp) - MIN(h.timestamp)) / 60000.0 as duration_minutes
+                FROM exercise_tags e
+                JOIN heart_rate_records h ON e.session_id = h.session_id
+                WHERE e.is_confirmed = 1
+                GROUP BY e.session_id
+            ),
+            duration_totals AS (
+                SELECT
+                    exercise_type,
+                    COUNT(*) as session_count,
+                    SUM(duration_minutes) as total_minutes
+                FROM session_durations
+                GROUP BY exercise_type
+            ),
+            hr_stats AS (
+                SELECT
+                    e.exercise_type,
+                    AVG(h.bpm) as avg_hr,
+                    MAX(h.bpm) as max_hr,
+                    MIN(h.bpm) as min_hr
+                FROM exercise_tags e
+                JOIN heart_rate_records h ON e.session_id = h.session_id
+                WHERE e.is_confirmed = 1
+                GROUP BY e.exercise_type
+            )
+            SELECT
+                d.exercise_type,
+                d.session_count,
+                h.avg_hr,
+                h.max_hr,
+                h.min_hr,
+                d.total_minutes
+            FROM duration_totals d
+            JOIN hr_stats h ON d.exercise_type = h.exercise_type
+            ORDER BY d.session_count DESC",
         )?;
 
         let stats = stmt
@@ -889,5 +1032,45 @@ impl Database {
             .collect::<SqliteResult<Vec<_>>>()?;
 
         Ok(stats)
+    }
+
+    // ==================== Exercise Types Management ====================
+
+    /// Get all exercise types
+    pub fn get_exercise_types(&self) -> SqliteResult<Vec<String>> {
+        let conn = self.get_conn()?;
+        let mut stmt = conn.prepare("SELECT name FROM exercise_types ORDER BY name")?;
+        let types: Vec<String> = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<SqliteResult<Vec<_>>>()?;
+        Ok(types)
+    }
+
+    /// Add a new exercise type
+    pub fn add_exercise_type(&self, name: &str) -> SqliteResult<()> {
+        let conn = self.get_conn()?;
+        let now = chrono::Utc::now().timestamp_millis();
+        conn.execute(
+            "INSERT INTO exercise_types (name, created_at) VALUES (?1, ?2)",
+            params![name, now],
+        )?;
+        Ok(())
+    }
+
+    /// Update an exercise type name
+    pub fn update_exercise_type(&self, old_name: &str, new_name: &str) -> SqliteResult<()> {
+        let conn = self.get_conn()?;
+        conn.execute(
+            "UPDATE exercise_types SET name = ?1 WHERE name = ?2",
+            params![new_name, old_name],
+        )?;
+        Ok(())
+    }
+
+    /// Delete an exercise type
+    pub fn delete_exercise_type(&self, name: &str) -> SqliteResult<()> {
+        let conn = self.get_conn()?;
+        conn.execute("DELETE FROM exercise_types WHERE name = ?1", params![name])?;
+        Ok(())
     }
 }

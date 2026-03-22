@@ -34,7 +34,10 @@
   let error: string | null = null;
 
   onMount(async () => {
-    await loadExerciseStats();
+    // Load with a small delay to avoid blocking
+    setTimeout(() => {
+      loadExerciseStats();
+    }, 200);
   });
 
   async function loadExerciseStats() {
